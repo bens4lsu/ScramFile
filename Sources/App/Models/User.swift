@@ -24,6 +24,9 @@ final class User: Model, Content, Codable {
     @Field(key: "userEncryptionKey")
     var userEncryptionKey: String
     
+    @Field(key: "isAdmin")
+    var isAdmin: Bool
+    
     init() { }
 
 }

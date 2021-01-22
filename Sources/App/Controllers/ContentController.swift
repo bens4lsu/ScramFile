@@ -13,68 +13,116 @@ import FluentMySQLDriver
 
 class ContentController: RouteCollection {
     
+    struct FileProp: Encodable {
+        var name: String
+        var modified: Date?
+        var isDirectory: Bool
+        var size: String?
+        var link: String?
+        var filePointer: String
+    }
+    
+    struct FileListing: Encodable {
+        var title: String
+        var fileProps: [FileProp]
+        var availableRepos: [Repo]
+        var showRepoSelector: Bool
+        var showAdmin: Bool
+    }
+    
+    struct FilePointer: Codable {
+        var directory: String
+        var fileName: String
+        
+        func encoded() throws -> String {
+            let encoder  = JSONEncoder()
+            let data = try encoder.encode(self)
+            return data.base64EncodedString()
+        }
+    }
+    
     let fileManager = FileManager.default
     
     let userId = UUID(uuidString: "DCBE4EAA-5CAF-11EB-A925-080027363641")!
+    let isAdmin = false
         
     func boot(routes: RoutesBuilder) throws {
-        routes.get("xxx", use: renderHome)
+        routes.get("x", use: renderHome)
+        routes.get("download", ":filePointer", use: streamFile)
     }
     
+
+    private func directoryContents(for directory: String) throws -> [FileProp] {
+        let files = try self.fileManager.contentsOfDirectory(atPath: directory)
+        var dirList = [FileProp]()
+        for file in files {
+            let filePath = directory + "/" + file
+            let attribs = try self.fileManager.attributesOfItem(atPath: filePath)
+            let modDate = attribs[.modificationDate] as? Date
+            let fileType = attribs[.type] as? String
+            let isDirectory = fileType == "NSFileTypeDirectory"
+            let fileSize = attribs[.size] as? UInt64 ?? UInt64(0)
+            let fileSizeFormatted = isDirectory ? "-" : ByteCountFormatter.string(fromByteCount: Int64(fileSize), countStyle: .file)
+            let filePointer = try FilePointer(directory: directory, fileName: file).encoded()
+            let listItem = FileProp(name: file, modified: modDate, isDirectory: isDirectory, size: fileSizeFormatted, filePointer: filePointer)
+            dirList.append(listItem)
+        }
+        return dirList
+    }
+    
+    private func findDirectory(on req: Request, for repo: Repo, subfolder: String?) -> String {
+        let directory = req.application.directory.resourcesDirectory + "/Repos/" + repo.repoFolder
+        guard let sub = subfolder else {
+            return directory
+        }
+        return directory + "/" + sub
+    }
+
+
+    // MARK: Request handlers
     
     func renderHome(_ req: Request) throws -> EventLoopFuture<View> {
-        return UserRepo.query(on: req.db).filter(\.$userId == self.userId).all().flatMap { userRepos in
+        return UserRepo.query(on: req.db).filter(\.$userId == self.userId).join(Repo.self, on: \UserRepo.$repoId == \Repo.$id).all().flatMap { userRepos in
             do {
-                if userRepos.count == 1 {
-                    return try self.renderRepoDirectory(req, userRepos[0].repoId)
-                }
-                else if userRepos.count > 1 {
-                    return try self.renderRepoListing(req, userRepos)
-                }
-                else {
+                guard userRepos.count >= 1 else {
                     return req.eventLoop.makeFailedFuture(Abort(.notFound, reason: "User does not have access to any file repositories."))
                 }
+                
+                // build list of repositories that the user can access
+                let showSelector = userRepos.count > 1
+                var repoList = [Repo]()
+                for userRepo in userRepos {
+                    let repo = try userRepo.joined(Repo.self)
+                    repoList.append(repo)
+                }
+                let sortedList = repoList.sorted(by: \.repoName)
+                
+                // pick the first repo in their list and display the contents of it.
+                let currentRepo = sortedList[0];
+                let directory = self.findDirectory(on: req, for: currentRepo, subfolder: nil)
+                let contents = try self.directoryContents(for: directory)
+                let context = FileListing(title: "Secure File Repository:  \(currentRepo.repoName)", fileProps: contents, availableRepos: sortedList, showRepoSelector: showSelector, showAdmin: self.isAdmin)
+                return req.view.render("index", context)
             }
             catch {
                 return req.eventLoop.makeFailedFuture(error)
             }
+            
         }
     }
     
     
-    func renderRepoDirectory(_ req: Request, _ repoId: UUID) throws -> EventLoopFuture<View> {
-        
-        struct FileProp: Encodable {
-            var name: String
-            var modified: Date?
-            var isDirectory: Bool
-            var size: String
+    public func streamFile(_ req: Request) throws -> Response {
+        guard let filePointer = req.parameters.get("filePointer"),
+              let data = Data(base64Encoded: filePointer)
+        else {
+            throw Abort(.badRequest, reason: "Invalid file requested.")
         }
-        
-        return Repo.query(on: req.db).filter(\.$id == repoId).first().flatMapThrowing { repo in
-            guard let repo = repo else {
-                throw Abort(.internalServerError, reason: "Request to display contents of repository, but with an invalid repository identifier.")
-            }
-            let directory = req.application.directory.resourcesDirectory + "/Repos/" + repo.repoFolder
-            let files = try self.fileManager.contentsOfDirectory(atPath: directory)
-            var dirList = [FileProp]()
-            for file in files {
-                let filePath = directory + "/" + file
-                let attribs = try self.fileManager.attributesOfItem(atPath: filePath)
-                let fileSize = attribs[.size] as? UInt64 ?? UInt64(0)
-                let fileSizeFormatted = ByteCountFormatter.string(fromByteCount: Int64(fileSize), countStyle: .file)
-                let modDate = attribs[.modificationDate] as? Date
-                let fileType = attribs[.type] as? String
-                let listItem = FileProp(name: file, modified: modDate, isDirectory: fileType == "NSFileTypeDirectory", size: fileSizeFormatted)
-                dirList.append(listItem)
-            }
-            return try req.view.render("index",dirList).wait()
-        }
+        let decoder = JSONDecoder()
+        let fp = try decoder.decode(FilePointer.self, from: data)
+        let filepath = fp.directory + "/" + fp.fileName
+        let response = req.fileio.streamFile(at: filepath)
+        response.headers.add(name: "content-disposition", value: "attachment; filename=\"\(fp.fileName)\"")
+        return response
     }
-    
-    func renderRepoListing(_ req: Request, _ repos: [UserRepo]) throws -> EventLoopFuture<View> {
-        return req.view.render("repoListing")
-    }
-    
-    
 }

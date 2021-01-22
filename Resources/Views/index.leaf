@@ -8,5 +8,36 @@
 
 <body>
   <h1>#(title)</h1>
+  
+    <select>#for(repo in availableRepos):
+        <option value="#(repo.id)">#(repo.repoName)</option>
+    #endfor</select>
+  
+  
+    
+    
+    <table>
+        <thead><tr>
+            <th>&nbsp;</th>
+            <th>&nbsp;</th>
+            <th>name</th>
+            <th>modified</th>
+            <th>size</th>
+            
+        </tr></thead>
+        <tbody>
+            #for(file in fileProps):
+                <tr><td>(checkbox)</td>
+                    <td>#(file.isDirectory)</td>
+                    <td><a href="download/#(file.filePointer)">#(file.name)</a></td>
+                    <td>#date(file.modified, "MM/dd/yyyy hh:mm")</td>
+                    <td>#(file.size)</td>
+                </tr>
+                
+            #endfor
+        </tbody>
+    </table>
+    
+    
 </body>
 </html>

@@ -26,5 +26,12 @@ final class Repo: Model, Content, Codable {
     var hostId: UUID
         
     init() { }
+    
+    init (id: UUID, repoFolder: String, repoName: String, hostId: UUID) {
+        self.id = id
+        self.repoFolder = repoFolder
+        self.repoName = repoName
+        self.hostId = hostId
+    }
 
 }
