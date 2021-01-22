@@ -12,14 +12,17 @@ import FluentMySQLDriver
 final class User: Model, Content, Codable {
     static let schema = "tblUsers"
     
-    @ID(custom: "userId")
-    var id: Int?
+    @ID
+    var id: UUID?
 
     @Field(key: "userName")
     var userName: String
 
     @Field(key: "hostId")
-    var hostId: Int
+    var hostId: UUID
+    
+    @Field(key: "userEncryptionKey")
+    var userEncryptionKey: String
     
     init() { }
 

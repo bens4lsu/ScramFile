@@ -11,13 +11,11 @@ import FluentMySQLDriver
 
 
 final class Host:  Model, Content, Codable {
-    
-    typealias IDValue = Int
-        
+            
     static var schema = "tblHosts"
     
-    @ID(custom: "hostId")
-    var id: Int?
+    @ID
+    var id: UUID?
 
     @Field(key: "hostFolder")
     var hostFolder: String

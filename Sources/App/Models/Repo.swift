@@ -10,13 +10,11 @@ import Fluent
 import FluentMySQLDriver
 
 final class Repo: Model, Content, Codable {
-    
-    typealias IDValue = Int
-    
+        
     static var schema = "tblRepos"
     
-    @ID(custom: "repoId")
-    var id: Int?
+    @ID
+    var id: UUID?
 
     @Field(key: "repoFolder")
     var repoFolder: String
@@ -25,11 +23,8 @@ final class Repo: Model, Content, Codable {
     var repoName: String
 
     @Field(key: "hostId")
-    var hostId: Int
-    
-    @Field(key: "userEncryptionKey")
-    var userEncryptionKey: String
-    
+    var hostId: UUID
+        
     init() { }
 
 }

@@ -10,18 +10,17 @@ import Fluent
 import FluentMySQLDriver
 
 final class UserRepo: Model, Content, Codable {
-    //typealias IDValue = type
     
     static let schema = "tblUserRepos"
     
-    @ID(key: "userRepoId")
-    var id: Int?
+    @ID
+    var id: UUID?
     
     @Field(key: "userId")
-    var userId: Int
+    var userId: UUID
 
     @Field(key: "repoId")
-    var repoId: Int
+    var repoId: UUID
 
     @Field(key: "accessLevel")
     var accessLevel: AccessLevel
