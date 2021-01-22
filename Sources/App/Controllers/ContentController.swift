@@ -33,6 +33,7 @@ class ContentController: RouteCollection {
     struct FilePointer: Codable {
         var directory: String
         var fileName: String
+        var isDirectory: Bool
         
         func encoded() throws -> String {
             let encoder  = JSONEncoder()
@@ -43,12 +44,18 @@ class ContentController: RouteCollection {
     
     let fileManager = FileManager.default
     
+    
+    // TODO:  This stuff has to come from the session
     let userId = UUID(uuidString: "DCBE4EAA-5CAF-11EB-A925-080027363641")!
     let isAdmin = false
+    var currentSubfolder: String? = nil
+    var currentRepoId: UUID = UUID()
         
+    
     func boot(routes: RoutesBuilder) throws {
         routes.get("x", use: renderHome)
         routes.get("download", ":filePointer", use: streamFile)
+        routes.get("changeRepo", ":newRepo", use:changeRepo)
     }
     
 
@@ -63,16 +70,16 @@ class ContentController: RouteCollection {
             let isDirectory = fileType == "NSFileTypeDirectory"
             let fileSize = attribs[.size] as? UInt64 ?? UInt64(0)
             let fileSizeFormatted = isDirectory ? "-" : ByteCountFormatter.string(fromByteCount: Int64(fileSize), countStyle: .file)
-            let filePointer = try FilePointer(directory: directory, fileName: file).encoded()
+            let filePointer = try FilePointer(directory: directory, fileName: file, isDirectory: isDirectory).encoded()
             let listItem = FileProp(name: file, modified: modDate, isDirectory: isDirectory, size: fileSizeFormatted, filePointer: filePointer)
             dirList.append(listItem)
         }
         return dirList
     }
     
-    private func findDirectory(on req: Request, for repo: Repo, subfolder: String?) -> String {
+    private func findDirectory(on req: Request, for repo: Repo) -> String {
         let directory = req.application.directory.resourcesDirectory + "/Repos/" + repo.repoFolder
-        guard let sub = subfolder else {
+        guard let sub = self.currentSubfolder else {
             return directory
         }
         return directory + "/" + sub
@@ -98,8 +105,9 @@ class ContentController: RouteCollection {
                 let sortedList = repoList.sorted(by: \.repoName)
                 
                 // pick the first repo in their list and display the contents of it.
-                let currentRepo = sortedList[0];
-                let directory = self.findDirectory(on: req, for: currentRepo, subfolder: nil)
+                
+                let currentRepo = sortedList.first {$0.id == self.currentRepoId} ?? sortedList[0]
+                let directory = self.findDirectory(on: req, for: currentRepo)
                 let contents = try self.directoryContents(for: directory)
                 let context = FileListing(title: "Secure File Repository:  \(currentRepo.repoName)", fileProps: contents, availableRepos: sortedList, showRepoSelector: showSelector, showAdmin: self.isAdmin)
                 return req.view.render("index", context)
@@ -112,7 +120,7 @@ class ContentController: RouteCollection {
     }
     
     
-    public func streamFile(_ req: Request) throws -> Response {
+    public func streamFile(_ req: Request) throws -> EventLoopFuture<Response> {
         guard let filePointer = req.parameters.get("filePointer"),
               let data = Data(base64Encoded: filePointer)
         else {
@@ -120,9 +128,25 @@ class ContentController: RouteCollection {
         }
         let decoder = JSONDecoder()
         let fp = try decoder.decode(FilePointer.self, from: data)
+        if fp.isDirectory {
+            self.currentSubfolder = fp.fileName
+            return try renderHome(req).encodeResponse(for: req)
+        }
         let filepath = fp.directory + "/" + fp.fileName
         let response = req.fileio.streamFile(at: filepath)
         response.headers.add(name: "content-disposition", value: "attachment; filename=\"\(fp.fileName)\"")
-        return response
+        return req.eventLoop.makeSucceededFuture(response)
+    }
+    
+    
+    public func changeRepo(_ req: Request) throws -> EventLoopFuture<View> {
+        guard let string = req.parameters.get("newRepo"),
+              let newRepoId = UUID(uuidString: string) else {
+            throw Abort(.badRequest, reason: "Invalid repo identifier requested.")
+        }
+        
+        self.currentRepoId = newRepoId
+        return try renderHome(req)
+        
     }
 }
