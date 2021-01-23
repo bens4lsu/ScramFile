@@ -10,6 +10,12 @@
 
     <script>  $(document).ready(function(){
     
+        function ajaxReload(link) {
+            $.get(link).done(function(){
+                location.reload();
+            });
+        }
+        
         $("a.a-download").on("click", function(e){
             e.preventDefault();
             var link = $(this).attr('href');
@@ -17,12 +23,18 @@
                 window.location.href = link;
             }
             else {
-                $.get(link).done(function(){
-                    location.reload();
-                });
+                ajaxReload(link);
             }
             return false;
         });
+        
+        $("\#sel-repo").change(function() {
+            var repo = $("\#sel-repo option:checked").val(); 
+            var link = "changeRepo/" + repo;
+            ajaxReload(link);
+        });
+        
+        
      });  </script>
     
 
@@ -30,7 +42,7 @@
   
     <select id="sel-repo">
         #for(repo in availableRepos):
-            <option value="#(repo.id)">#(repo.repoName)</option>
+            <option value="#(repo.repoId)" #if(repo.isSelected): selected #endif>#(repo.repoName)</option>
         #endfor
     </select>
   

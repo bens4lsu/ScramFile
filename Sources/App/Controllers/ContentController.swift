@@ -13,6 +13,14 @@ import FluentMySQLDriver
 
 class ContentController: RouteCollection {
     
+    struct HomeContext: Encodable {
+        var title: String
+        var fileProps: [FileProp]
+        var availableRepos: [RepoListing]
+        var showRepoSelector: Bool
+        var showAdmin: Bool
+    }
+
     struct FileProp: Encodable {
         var name: String
         var modified: Date?
@@ -20,14 +28,6 @@ class ContentController: RouteCollection {
         var size: String?
         var link: String
         var allowDeletes: Bool
-    }
-    
-    struct FileListing: Encodable {
-        var title: String
-        var fileProps: [FileProp]
-        var availableRepos: [Repo]
-        var showRepoSelector: Bool
-        var showAdmin: Bool
     }
     
     struct FilePointer: Codable {
@@ -42,14 +42,14 @@ class ContentController: RouteCollection {
         }
     }
     
+    struct RepoListing: Encodable {
+        var repoId: UUID
+        var repoName: String
+        var isSelected: Bool
+        var repoFolder: String
+    }
+    
     let fileManager = FileManager.default
-    
-    
-    // TODO:  This stuff has to come from the session
-//    let userId = UUID(uuidString: "DCBE4EAA-5CAF-11EB-A925-080027363641")!
-//    let isAdmin = false
-//    var currentSubfolder: String? = nil
-//    var currentRepoId: UUID = UUID()
         
     
     func boot(routes: RoutesBuilder) throws {
@@ -84,7 +84,7 @@ class ContentController: RouteCollection {
     }
     
     
-    private func findDirectory(on req: Request, for repo: Repo) -> String {
+    private func findDirectory(on req: Request, for repo: RepoListing) -> String {
         let directory = req.application.directory.resourcesDirectory + "Repos/" + repo.repoFolder
         guard let sub = SessionController.currentSubfolder(req) else {
             return directory
@@ -111,38 +111,45 @@ class ContentController: RouteCollection {
         }
         SessionController.setCurrentSubfolder(req, nil)
     }
+    
+    private func repoContext(_ req: Request) throws -> EventLoopFuture<[RepoListing]>{
+        return UserRepo.query(on: req.db).filter(\.$userId == SessionController.userId(req)).join(Repo.self, on: \UserRepo.$repoId == \Repo.$id).all().flatMapThrowing { userRepos in
+            guard userRepos.count >= 1 else {
+                throw Abort(.notFound, reason: "User does not have access to any file repositories.")
+            }
+            
+            var repoListing = [RepoListing]()
+            for userRepo in userRepos {
+                let repo = try userRepo.joined(Repo.self)
+                
+                guard let id = repo.id else {
+                    throw Abort(.internalServerError, reason: "Unwrapped repo id problem.  This really can't happen")
+                }
+                
+                let isSelected = repo.id == SessionController.currentRepo(req)
+                repoListing.append(RepoListing(repoId: id, repoName: repo.repoName, isSelected: isSelected, repoFolder: repo.repoFolder))
+            }
+            return repoListing.sorted(by: \.repoName)
+        }
+    }
 
 
     // MARK: Request handlers
     
     func renderHome(_ req: Request) throws -> EventLoopFuture<View> {
-        return UserRepo.query(on: req.db).filter(\.$userId == SessionController.userId(req)).join(Repo.self, on: \UserRepo.$repoId == \Repo.$id).all().flatMap { userRepos in
+        return try repoContext(req).flatMap { repoContext in
             do {
-                guard userRepos.count >= 1 else {
-                    return req.eventLoop.makeFailedFuture(Abort(.notFound, reason: "User does not have access to any file repositories."))
-                }
+                let currentRepo = repoContext.filter{$0.isSelected}.first ?? repoContext[0]
                 
-                // build list of repositories that the user can access
-                let showSelector = userRepos.count > 1
-                var repoList = [Repo]()
-                for userRepo in userRepos {
-                    let repo = try userRepo.joined(Repo.self)
-                    repoList.append(repo)
-                }
-                let sortedList = repoList.sorted(by: \.repoName)
-                
-                // pick the first repo in their list and display the contents of it.
-                
-                let currentRepo = sortedList.first {$0.id == SessionController.currentRepo(req)} ?? sortedList[0]
                 let directory = self.findDirectory(on: req, for: currentRepo)
                 let contents = try self.directoryContents(on: req, for: directory)
-                let context = FileListing(title: "Secure File Repository:  \(currentRepo.repoName)", fileProps: contents, availableRepos: sortedList, showRepoSelector: showSelector, showAdmin: SessionController.isAdmin(req))
+                let showSelector = repoContext.count > 1
+                let context = HomeContext(title: "Secure File Repository:  \(currentRepo.repoName)", fileProps: contents, availableRepos: repoContext, showRepoSelector: showSelector, showAdmin: SessionController.isAdmin(req))
                 return req.view.render("index", context)
             }
             catch {
-                return req.eventLoop.makeFailedFuture(error)
+                return req.eventLoop.makeFailedFuture(Abort(.internalServerError, reason: "failure in RenderHome method."))
             }
-            
         }
     }
     
@@ -155,13 +162,6 @@ class ContentController: RouteCollection {
         }
         let decoder = JSONDecoder()
         let fp = try decoder.decode(FilePointer.self, from: data)
-        
-        // TODO:  directory part somewhere else
-        if fp.isDirectory {
-            SessionController.setCurrentSubfolder(req, fp.fileName)
-            return try renderHome(req).encodeResponse(for: req)
-        }
-        
         let filepath = fp.directory + "/" + fp.fileName
         let response = req.fileio.streamFile(at: filepath)
         response.headers.add(name: "content-disposition", value: "attachment; filename=\"\(fp.fileName)\"")
