@@ -6,3 +6,11 @@
 //
 
 import Foundation
+import Vapor
+
+
+
+class SecurityController {
+        
+
+}

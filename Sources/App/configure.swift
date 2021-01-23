@@ -29,12 +29,9 @@ public func configure(_ app: Application) throws {
     
     /// setup public file middleware (for hosting our uploaded files)
     app.middleware.use(FileMiddleware(publicDirectory: app.directory.publicDirectory))
-
-    /// index route
-    app.get { req in
-        req.leaf.render("index")
-    }
     
+    app.middleware.use(app.sessions.middleware)
+
     /// upload handler
     app.post("upload") { req in
         "Upload file..."
