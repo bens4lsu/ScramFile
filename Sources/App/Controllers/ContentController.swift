@@ -58,8 +58,102 @@ class ContentController: RouteCollection {
         routes.get("changeRepo", ":newRepo", use: changeRepo)
         routes.get("folderUp", use: folderUp)
         routes.get("folder", ":newFolder", use: newFolder)
+        routes.post("upload", use: upload)
     }
     
+    
+    // MARK: Request handlers
+    
+    func renderHome(_ req: Request) throws -> EventLoopFuture<View> {
+        return try repoContext(req).flatMap { repoContext in
+            do {
+                let currentRepo = repoContext.filter{$0.isSelected}.first ?? repoContext[0]
+                
+                let directory = self.findDirectory(on: req, for: currentRepo)
+                let contents = try self.directoryContents(on: req, for: directory)
+                let showSelector = repoContext.count > 1
+                let context = HomeContext(title: "Secure File Repository:  \(currentRepo.repoName)", fileProps: contents, availableRepos: repoContext, showRepoSelector: showSelector, showAdmin: SessionController.isAdmin(req))
+                return req.view.render("index", context)
+            }
+            catch {
+                return req.eventLoop.makeFailedFuture(Abort(.internalServerError, reason: "failure in RenderHome method."))
+            }
+        }
+    }
+    
+    
+    public func streamFile(_ req: Request) throws -> EventLoopFuture<Response> {
+        guard let filePointer = req.parameters.get("filePointer"),
+              let data = Data(base64Encoded: filePointer)
+        else {
+            throw Abort(.badRequest, reason: "Invalid file requested.")
+        }
+        let decoder = JSONDecoder()
+        let fp = try decoder.decode(FilePointer.self, from: data)
+        let filepath = fp.directory + "/" + fp.fileName
+        let response = req.fileio.streamFile(at: filepath)
+        response.headers.add(name: "content-disposition", value: "attachment; filename=\"\(fp.fileName)\"")
+        return req.eventLoop.makeSucceededFuture(response)
+    }
+    
+    
+    public func changeRepo(_ req: Request) throws -> EventLoopFuture<View> {
+        guard let string = req.parameters.get("newRepo"),
+              let newRepoId = UUID(uuidString: string) else {
+            throw Abort(.badRequest, reason: "Invalid repo identifier requested.")
+        }
+        
+        SessionController.setCurrentRepo(req, newRepoId)
+        return try renderHome(req)
+    }
+    
+    
+    public func folderUp(_ req: Request) throws -> EventLoopFuture<View> {
+        subfolderPop(req)
+        return try renderHome(req)
+    }
+    
+    
+    public func newFolder(_ req: Request) throws -> EventLoopFuture<View> {
+        guard let filePointer = req.parameters.get("newFolder"),
+              let data = Data(base64Encoded: filePointer)
+        else {
+            throw Abort(.badRequest, reason: "Invalid file requested.")
+        }
+        let decoder = JSONDecoder()
+        let fp = try decoder.decode(FilePointer.self, from: data)
+        SessionController.setCurrentSubfolder(req, fp.fileName)
+        return try renderHome(req)
+    }
+    
+    public func upload(_ req: Request) throws -> EventLoopFuture<String> {
+        struct Input: Content {
+            var file: File
+        }
+        
+        let input = try req.content.decode(Input.self)
+        return try currentRepoContext(req).flatMap { repoListing in
+            do {
+                guard let repo = repoListing else{
+                    throw Abort(.internalServerError, reason: "Could not determine a current repository context.")
+                }
+                
+                let path = self.findDirectory(on: req, for: repo)
+                return req.application.fileio.openFile(path: path, mode: .write, flags: .allowFileCreation(posixMode: 0x744), eventLoop: req.eventLoop).flatMap { handle in
+                    return req.application.fileio.write(fileHandle: handle, buffer: input.file.data, eventLoop: req.eventLoop).flatMapThrowing { _ in
+                        try handle.close()
+                        return input.file.filename
+                    }
+                }
+            }
+            catch {
+                return req.eventLoop.makeFailedFuture(Abort(.internalServerError))
+            }
+        }
+    }
+
+    
+    // MARK: Private helper methods
 
     private func directoryContents(on req: Request, for directory: String) throws -> [FileProp] {
         let files = try self.fileManager.contentsOfDirectory(atPath: directory)
@@ -132,69 +226,12 @@ class ContentController: RouteCollection {
             return repoListing.sorted(by: \.repoName)
         }
     }
+    
+    private func currentRepoContext(_ req: Request) throws -> EventLoopFuture<RepoListing?> {
+        return try repoContext(req).map { context in
+            context.filter{$0.isSelected}.first
+        }
+    }
 
 
-    // MARK: Request handlers
-    
-    func renderHome(_ req: Request) throws -> EventLoopFuture<View> {
-        return try repoContext(req).flatMap { repoContext in
-            do {
-                let currentRepo = repoContext.filter{$0.isSelected}.first ?? repoContext[0]
-                
-                let directory = self.findDirectory(on: req, for: currentRepo)
-                let contents = try self.directoryContents(on: req, for: directory)
-                let showSelector = repoContext.count > 1
-                let context = HomeContext(title: "Secure File Repository:  \(currentRepo.repoName)", fileProps: contents, availableRepos: repoContext, showRepoSelector: showSelector, showAdmin: SessionController.isAdmin(req))
-                return req.view.render("index", context)
-            }
-            catch {
-                return req.eventLoop.makeFailedFuture(Abort(.internalServerError, reason: "failure in RenderHome method."))
-            }
-        }
-    }
-    
-    
-    public func streamFile(_ req: Request) throws -> EventLoopFuture<Response> {
-        guard let filePointer = req.parameters.get("filePointer"),
-              let data = Data(base64Encoded: filePointer)
-        else {
-            throw Abort(.badRequest, reason: "Invalid file requested.")
-        }
-        let decoder = JSONDecoder()
-        let fp = try decoder.decode(FilePointer.self, from: data)
-        let filepath = fp.directory + "/" + fp.fileName
-        let response = req.fileio.streamFile(at: filepath)
-        response.headers.add(name: "content-disposition", value: "attachment; filename=\"\(fp.fileName)\"")
-        return req.eventLoop.makeSucceededFuture(response)
-    }
-    
-    
-    public func changeRepo(_ req: Request) throws -> EventLoopFuture<View> {
-        guard let string = req.parameters.get("newRepo"),
-              let newRepoId = UUID(uuidString: string) else {
-            throw Abort(.badRequest, reason: "Invalid repo identifier requested.")
-        }
-        
-        SessionController.setCurrentRepo(req, newRepoId)
-        return try renderHome(req)
-    }
-    
-    
-    public func folderUp(_ req: Request) throws -> EventLoopFuture<View> {
-        subfolderPop(req)
-        return try renderHome(req)
-    }
-    
-    
-    public func newFolder(_ req: Request) throws -> EventLoopFuture<View> {
-        guard let filePointer = req.parameters.get("newFolder"),
-              let data = Data(base64Encoded: filePointer)
-        else {
-            throw Abort(.badRequest, reason: "Invalid file requested.")
-        }
-        let decoder = JSONDecoder()
-        let fp = try decoder.decode(FilePointer.self, from: data)
-        SessionController.setCurrentSubfolder(req, fp.fileName)
-        return try renderHome(req)
-    }
 }

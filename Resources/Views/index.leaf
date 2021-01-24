@@ -66,6 +66,11 @@
         </tbody>
     </table>
     
+    <form action="/upload" method="post" enctype="multipart/form-data">
+        <input type="file" name="file"><br><br>
+        <input type="submit" value="Submit">
+    </form>
+    
     
 </body>
 </html>
