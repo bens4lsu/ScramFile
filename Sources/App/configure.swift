@@ -32,8 +32,4 @@ public func configure(_ app: Application) throws {
     
     app.middleware.use(app.sessions.middleware)
 
-    /// upload handler
-    app.post("upload") { req in
-        "Upload file..."
-    }
 }

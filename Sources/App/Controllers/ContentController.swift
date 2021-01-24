@@ -68,7 +68,7 @@ class ContentController: RouteCollection {
         return try repoContext(req).flatMap { repoContext in
             do {
                 let currentRepo = repoContext.filter{$0.isSelected}.first ?? repoContext[0]
-                
+                SessionController.setCurrentRepo(req, currentRepo.repoId)
                 let directory = self.findDirectory(on: req, for: currentRepo)
                 let contents = try self.directoryContents(on: req, for: directory)
                 let showSelector = repoContext.count > 1
@@ -139,7 +139,8 @@ class ContentController: RouteCollection {
                 }
                 
                 let path = self.findDirectory(on: req, for: repo)
-                return req.application.fileio.openFile(path: path, mode: .write, flags: .allowFileCreation(posixMode: 0x744), eventLoop: req.eventLoop).flatMap { handle in
+                let newfile = path + "/" + input.file.filename
+                return req.application.fileio.openFile(path: newfile, mode: .write, flags: .allowFileCreation(posixMode: 0x744), eventLoop: req.eventLoop).flatMap { handle in
                     return req.application.fileio.write(fileHandle: handle, buffer: input.file.data, eventLoop: req.eventLoop).flatMapThrowing { _ in
                         try handle.close()
                         return input.file.filename
@@ -147,7 +148,7 @@ class ContentController: RouteCollection {
                 }
             }
             catch {
-                return req.eventLoop.makeFailedFuture(Abort(.internalServerError))
+                return req.eventLoop.makeFailedFuture(Abort(.internalServerError, reason: error.localizedDescription))
             }
         }
     }
@@ -229,6 +230,7 @@ class ContentController: RouteCollection {
     
     private func currentRepoContext(_ req: Request) throws -> EventLoopFuture<RepoListing?> {
         return try repoContext(req).map { context in
+            
             context.filter{$0.isSelected}.first
         }
     }
