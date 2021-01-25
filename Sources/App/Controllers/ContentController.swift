@@ -83,7 +83,7 @@ class ContentController: RouteCollection {
     
     
     public func streamFile(_ req: Request) throws -> EventLoopFuture<Response> {
-        guard let filePointer = req.parameters.get("filePointer"),
+        guard let  filePointer = req.parameters.get("filePointer"),
               let data = Data(base64Encoded: filePointer)
         else {
             throw Abort(.badRequest, reason: "Invalid file requested.")

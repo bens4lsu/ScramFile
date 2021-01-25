@@ -27,6 +27,15 @@ final class User: Model, Content, Codable {
     @Field(key: "isAdmin")
     var isAdmin: Bool
     
+    @Field(key: "emailAddress")
+    var emailAddress: String
+    
+    @Field(key: "passwordHash")
+    var passwordHash: String
+    
+    @Field(key: "isActive")
+    var isActive: Bool
+    
     init() { }
 
 }
