@@ -9,12 +9,16 @@ import Foundation
 import Vapor
 import Fluent
 import FluentMySQLDriver
-import Crypto
 import SwiftSMTP
 
 
 
 class SecurityController: RouteCollection {
+    
+    struct UserRepoAccess: Codable {
+        var repoId: UUID
+        var accessLevel: AccessLevel
+    }
     
     let mailMessages: [ConfigurationSettings.Message]
     let concordMail: ConcordMail
@@ -31,15 +35,15 @@ class SecurityController: RouteCollection {
             group.get("login", use: renderLogin)
             //group.get("create", use: renderUserCreate)
             group.get("change-password", use: renderUserCreate)
-            group.get("request-password-reset", use: renderPasswordResetForm)
+//            group.get("request-password-reset", use: renderPasswordResetForm)
             group.get("check-email", use: renderCheckEmail)
-            group.get("password-reset-process", ":resetString", use: verifyPasswordResetRequest)
+//            group.get("password-reset-process", ":resetString", use: verifyPasswordResetRequest)
             
             group.post("login", use: login)
-            group.post("create", use: createUser)
+//            group.post("create", use: createUser)
             //group.post("change-password", use: changePassword)
-            group.post("request-password-reset", use: sendPWResetEmail)
-            group.post("password-reset-process", String.parameter, use: verifyAndChangePassword)
+//            group.post("request-password-reset", use: sendPWResetEmail)
+//            group.post("password-reset-process", ":resetString", use: verifyAndChangePassword)
         }
     }
     
@@ -73,129 +77,96 @@ class SecurityController: RouteCollection {
             throw Abort(.badRequest)
         }
         
-        return User.query(on: req.db).filter(\.$emailAddress == email).all().flatMapThrowing { userMatches in
+        return User.query(on: req.db).filter(\.$emailAddress == email).all().flatMap { userMatches in
             
-            guard userMatches.count < 2 else {
-                throw Abort(.unauthorized, reason: "More than one user exists with that email address.")
-            }
+            do {
             
-            guard userMatches.count == 1 else {
-                throw Abort(.unauthorized, reason: "No user exists for that email address.")
-            }
-            
-            let user = userMatches[0]
-            // verify that password submitted matches
-            guard try BCrypt.verify(password, created: user.passwordHash) else {
-                throw Abort(.unauthorized, reason: "Could not verify password.")
-            }
-            
-            // login success
-            guard user.isActive else {
-                throw Abort(.unauthorized, reason: "User's system access has been revoked.")
-            }
-            
-            // create access log entry
-            let accessLog = AccessLog(personId: user.id!)
-            return accessLog.save(on: req).map(to: Response.self) { access in
-                let userPersistInfo = user.persistInfo()!
-                let ip = req.http.remotePeer.hostname
-                if let accessId = access.id {
-                    let token = Token(user: userPersistInfo,
-                                      exp: Date().addingTimeInterval(self.cache.configKeys.tokenExpDuration),
-                                      ip: ip,
-                                      accessLogId: accessId,
-                                      loginTime: access.accessTime)
-                    try UserAndTokenController.saveSessionInfo(req: req, info: token, sessionKey: "token")
+                guard userMatches.count < 2 else {
+                    throw Abort(.unauthorized, reason: "More than one user exists with that email address.")
                 }
-                return req.redirect(to: "/")
+                
+                guard userMatches.count == 1 else {
+                    throw Abort(.unauthorized, reason: "No user exists for that email address.")
+                }
+                
+                let user = userMatches[0]
+                // verify that password submitted matches
+                guard try Bcrypt.verify(password, created: user.passwordHash) else {
+                    throw Abort(.unauthorized, reason: "Could not verify password.")
+                }
+                
+                // login success
+                guard user.isActive else {
+                    throw Abort(.unauthorized, reason: "User's system access has been revoked.")
+                }
+                
+                // let's store a list of repos that the user has access to to make it easy to check access when they
+                // change repos.
+                
+                guard let userId = user.id else {
+                    throw Abort(.internalServerError, reason: "Error in user's configuration: \(user.userName)")
+                }
+                
+                return UserRepo.query(on: req.db).filter(\.$userId == userId).all().flatMapThrowing { userRepos in
+                    var userRepoAccessList = [UserRepoAccess]()
+                    for userRepo in userRepos {
+                        userRepoAccessList.append(UserRepoAccess(repoId: userRepo.repoId, accessLevel: userRepo.accessLevel))
+                    }
+                    try SessionController.setRepoAccesssList(req, userRepoAccessList)
+                    return req.redirect(to: "/x")
+                }
+            }
+            catch {
+                return req.eventLoop.makeFailedFuture(error)
             }
         }
     }
     
     
-    private func createUser(_ req: Request) throws -> EventLoopFuture<User> {
-        struct FormData: Decodable {
-            var emailAddress: String?
-            var password: String?
-            var name: String?
-        }
-        let form = try req.content.syncDecode(FormData.self)
-        guard let emailAddress = form.emailAddress,
-            let password = form.password,
-            let name = form.name,
-            let passwordHash = try? BCrypt.hash(password)
-            else {
-                throw Abort(.partialContent, reason: "All fields on create user form are requird")
-        }
-        let newUser = User(id: nil, name: name, emailAddress: emailAddress, passwordHash: passwordHash)
-        return newUser.create(on: req)
-    }
+//    private func createUser(_ req: Request) throws -> EventLoopFuture<User> {
+//        struct FormData: Decodable {
+//            var emailAddress: String?
+//            var password: String?
+//            var name: String?
+//        }
+//        let form = try req.content.syncDecode(FormData.self)
+//        guard let emailAddress = form.emailAddress,
+//            let password = form.password,
+//            let name = form.name,
+//            let passwordHash = try? Bcrypt.hash(password)
+//            else {
+//                throw Abort(.partialContent, reason: "All fields on create user form are requird")
+//        }
+//        let newUser = User(id: nil, name: name, emailAddress: emailAddress, passwordHash: passwordHash)
+//        return newUser.create(on: req)
+//    }
     
     
     
     // MARK: Static methods - used for verification in other controllers
     
     static func redirectToLogin(_ req: Request) -> EventLoopFuture<Response> {
-        return req.future().map() {
-            // TODO:  Fix this.  Just putting /security/login -> 404
-            let session = try req.session()
-            session["token"] = nil
-            session["filter"] = nil
-            return req.redirect(to: "./security/login")
-        }
+        SessionController.kill(req)
+        return req.eventLoop.makeSucceededFuture(req.redirect(to: "./security/login"))
     }
     
     
-    static func verifyAccess(_ req: Request, accessLevel: UserAccessLevel, onSuccess: @escaping (_: UserPersistInfo) throws -> EventLoopFuture<Response>) throws -> EventLoopFuture<Response> {
-        guard let temp: Token? =  try? getSessionInfo(req: req, sessionKey: "token"),
-            var token = temp else {
-                return UserAndTokenController.redirectToLogin(req)
+    static func verifyAccess(_ req: Request, repo: UUID, onSuccess: @escaping () throws -> EventLoopFuture<Response>) throws -> EventLoopFuture<Response> {
+        guard let available = SessionController.repoAcccessList(req) else {
+            throw Abort(.unauthorized)
         }
         
-        guard token.exp >= Date() || token.ip == req.http.remotePeer.hostname else {
-            // token is expired, or ip address has changed
-            return UserAndTokenController.redirectToLogin(req)
+        guard available.filter({ $0.repoId == repo }).first != nil else {
+            throw Abort(.unauthorized)
         }
-        
-        if !token.user.access.contains(accessLevel)  {
-            // TODO: reroute to a no permission for this resource page
-            throw Abort (.unauthorized)
-        }
-        
-        token.exp = (Date().addingTimeInterval(UserAndTokenController.tokenExpDuration))
-        try saveSessionInfo(req: req, info: token, sessionKey: "token")
-        
-        let accessLog = AccessLog(personId: token.user.id, id: token.accessLogId, loginTime: token.loginTime)
-        return accessLog.save(on: req).flatMap(to:Response.self) { _ in
-            return try onSuccess(token.user)
-        }
-    }
-    
-    
-    static func getSessionInfo<T: Codable>(req: Request, sessionKey: String) throws -> T?  {
-        let session = try req.session()
-        guard let stringifiedData = session[sessionKey] else {
-            return nil
-        }
-        let decoder = JSONDecoder()
-        guard let data: T = try? decoder.decode(T.self, from: stringifiedData) else {
-            return nil
-        }
-        return data
-    }
-    
-    static func saveSessionInfo<T: Codable>(req: Request, info: T, sessionKey: String) throws {
-        let session = try req.session()
-        let encoder = JSONEncoder()
-        let data = try encoder.encode(info)
-        session[sessionKey] = String(data: data, encoding: .utf8)
+        return try onSuccess()
     }
 }
 
 
 
 // MARK:  Password reset methods
-
+/*
 extension SecurityController {
     
     private func renderPasswordResetForm(_ req: Request) throws -> EventLoopFuture<View> {
@@ -262,7 +233,7 @@ extension SecurityController {
         }
     }
     
-    private func verifyKey(_ req: Request, resetKey: String) throws -> Future<PasswordResetRequest> {
+    private func verifyKey(_ req: Request, resetKey: String) throws -> EventLoopFuture<PasswordResetRequest> {
         
         guard let uuid = UUID(resetKey) else {
             throw Abort(.badRequest, reason: "No reset token read in request for password reset.")
@@ -306,7 +277,7 @@ extension SecurityController {
         }
     }
     
-    private func changePassword(_ req: Request, userId: Int, newPassword: String) throws -> Future<User> {
+    private func changePassword(_ req: Request, userId: Int, newPassword: String) throws -> EventLoopFuture<User> {
         return User.query(on:req).filter(\.id == userId).all().flatMap(to: User.self) { userMatch in
             var user = userMatch[0]
             let passwordHash = try BCrypt.hash(newPassword)
@@ -359,4 +330,4 @@ extension SecurityController {
     }
     
 }
-
+*/

@@ -48,4 +48,25 @@ class SessionController {
     static func setCurrentSubfolder(_ req: Request, _ currentSubfolder: String?){
         req.session.data["currentSubfolder"] = currentSubfolder
     }
+    
+    static func kill(_ req: Request) {
+        req.session.data = SessionData()
+    }
+    
+    static func repoAcccessList(_ req: Request) -> [SecurityController.UserRepoAccess]? {
+        guard let sessData = req.session.data["userRepoAccess"],
+              let data = Data(base64Encoded: sessData) else {
+            return nil
+        }
+        
+        let decoder = JSONDecoder()
+        return try? decoder.decode([SecurityController.UserRepoAccess].self, from: data)
+    }
+    
+    static func setRepoAccesssList(_ req: Request, _ accessList: [SecurityController.UserRepoAccess]) throws {
+        let encoder = JSONEncoder()
+        let data = try encoder.encode(accessList)
+        req.session.data["userRepoAccess"] = data.base64EncodedString()
+    }
 }
+
