@@ -19,6 +19,7 @@ class ContentController: RouteCollection {
         var availableRepos: [RepoListing]
         var showRepoSelector: Bool
         var showAdmin: Bool
+        var pathAtTop: [String: String]
     }
 
     struct FileProp: Encodable {
@@ -33,7 +34,7 @@ class ContentController: RouteCollection {
     struct FilePointer: Codable {
         var directory: String
         var fileName: String
-        var isDirectory: Bool
+        var isDirectory: Bool = true
         
         func encoded() throws -> String {
             let encoder  = JSONEncoder()
@@ -50,6 +51,8 @@ class ContentController: RouteCollection {
     }
     
     let fileManager = FileManager.default
+    
+
         
     
     func boot(routes: RoutesBuilder) throws {
@@ -72,7 +75,8 @@ class ContentController: RouteCollection {
                 let directory = self.findDirectory(on: req, for: currentRepo)
                 let contents = try self.directoryContents(on: req, for: directory)
                 let showSelector = repoContext.count > 1
-                let context = HomeContext(title: "Secure File Repository:  \(currentRepo.repoName)", fileProps: contents, availableRepos: repoContext, showRepoSelector: showSelector, showAdmin: SessionController.isAdmin(req))
+                let pathAtTop = try self.folderHeirarchy(req)
+                let context = HomeContext(title: "Secure File Repository:  \(currentRepo.repoName)", fileProps: contents, availableRepos: repoContext, showRepoSelector: showSelector, showAdmin: SessionController.isAdmin(req), pathAtTop: pathAtTop)
                 return req.view.render("index", context)
             }
             catch {
@@ -233,6 +237,23 @@ class ContentController: RouteCollection {
             
             context.filter{$0.isSelected}.first
         }
+    }
+    
+    func folderHeirarchy(_ req: Request) throws ->  [String: String] {
+        guard let subfolderString = SessionController.currentSubfolder(req) else {
+            return [:]
+        }
+        var filePointers = [String: String]()
+        let folder = subfolderString.components(separatedBy: "/")
+        for i in (0...folder.count) {
+            var path1 = "folder"
+            for j in (0...i){
+                path1 += "/" + folder[j]
+            }
+            let fp = try FilePointer(directory: folder[i], fileName: path1, isDirectory: true).encoded()
+            filePointers[folder[i]] = fp
+        }
+        return filePointers
     }
 
 
