@@ -20,13 +20,14 @@ class SecurityController: RouteCollection {
         var accessLevel: AccessLevel
     }
     
-    let mailMessages: [ConfigurationSettings.Message]
+    let mailMessages: [String: ConfigurationSettings.Message]
     let concordMail: ConcordMail
     
     init() {
         
         let settings = ConfigurationSettings()
         self.concordMail = ConcordMail(configKeys: settings.smtp)
+        self.mailMessages = settings.emailMessages
     }
     
     

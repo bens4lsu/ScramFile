@@ -10,4 +10,5 @@ import Foundation
 enum AccessLevel: String, Codable {
     case read
     case full
+    case none
 }

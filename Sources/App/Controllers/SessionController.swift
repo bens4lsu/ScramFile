@@ -68,5 +68,15 @@ class SessionController {
         let data = try encoder.encode(accessList)
         req.session.data["userRepoAccess"] = data.base64EncodedString()
     }
+    
+    static func accessLevelToCurrentRepo(_ req: Request) -> AccessLevel {
+        guard let accessList = repoAcccessList(req),
+              let currentRepo = currentRepo(req),
+              let accessToCurrent = accessList.filter({$0.repoId == currentRepo}).first
+        else {
+            return .none
+        }
+        return accessToCurrent.accessLevel
+    }
 }
 
