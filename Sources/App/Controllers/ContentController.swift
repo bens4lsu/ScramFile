@@ -68,7 +68,7 @@ class ContentController: RouteCollection {
         routes.get("folderdir", ":newFolder", use:goToFolder)
         routes.post("upload", use: upload)
         routes.get("top", use: folderTop)
-        routes.post("createFolder", ":newFolder", use:newFolder)
+        routes.post("createFolder", use:createFolder)
     }
     
     
@@ -168,10 +168,14 @@ class ContentController: RouteCollection {
         }
     }
     
-    public func newFolder(_ req: Request) throws -> EventLoopFuture<Response> {
-        guard let newFolder = req.parameters.get("newFolder") else {
-            throw Abort(.badRequest, reason: "Invalid folder identifier requested.")
+    public func createFolder(_ req: Request) throws -> EventLoopFuture<Response> {
+        print("Start new folder creation.")
+        
+        struct FolderPost: Codable{
+            var newFolder: String
         }
+        
+        let newFolder = try req.content.decode(FolderPost.self).newFolder
         
         guard newFolder.count >= 1 else {
             throw Abort(.badRequest, reason: "Invalid folder identifier requested: \(newFolder)")
@@ -181,7 +185,7 @@ class ContentController: RouteCollection {
             guard let repoListing = repoListing else {
                 throw Abort(.badRequest, reason: "Invalid repo specified for new folder.")
             }
-            
+            print(repoListing)
             let dir = self.findDirectory(on: req, for: repoListing) + "/" + newFolder
             try self.fileManager.createDirectory(atPath: dir, withIntermediateDirectories: false, attributes: nil)
             return req.redirect(to: self.urlRoot)

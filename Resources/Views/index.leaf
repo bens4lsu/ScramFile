@@ -36,8 +36,7 @@
         });
         
         $("\#btnNewFolder").click(function() {
-            alert();
-            $.post("newFolder", {"newFolder" : "new folder name"}, function(){
+            $.post("createFolder", {"newFolder" : "new folder name"}, function(){
                 location.reload();
             });
         });
