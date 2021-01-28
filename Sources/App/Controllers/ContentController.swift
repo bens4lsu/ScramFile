@@ -52,11 +52,15 @@ class ContentController: RouteCollection {
     
     let fileManager = FileManager.default
     
+    let urlRootString = "x"
+    var urlRoot:String {"/\(urlRootString)"}
+    var urlRootPath:PathComponent {PathComponent(stringLiteral: urlRootString)}
+    
 
         
     
     func boot(routes: RoutesBuilder) throws {
-        routes.get("x", use: renderHome)
+        routes.get(urlRootPath, use: renderHome)
         routes.get("download", ":filePointer", use: streamFile)
         routes.get("changeRepo", ":newRepo", use: changeRepo)
         routes.get("folderUp", use: folderUp)
@@ -64,6 +68,7 @@ class ContentController: RouteCollection {
         routes.get("folderdir", ":newFolder", use:goToFolder)
         routes.post("upload", use: upload)
         routes.get("top", use: folderTop)
+        routes.post("createFolder", ":newFolder", use:newFolder)
     }
     
     
@@ -104,18 +109,18 @@ class ContentController: RouteCollection {
         }
         
         SessionController.setCurrentRepo(req, newRepoId)
-        return req.eventLoop.makeSucceededFuture(req.redirect(to: "/x"))
+        return req.eventLoop.makeSucceededFuture(req.redirect(to: urlRoot))
     }
     
     
     public func folderUp(_ req: Request) throws -> EventLoopFuture<Response> {
         subfolderPop(req)
-        return req.eventLoop.makeSucceededFuture(req.redirect(to: "/x"))
+        return req.eventLoop.makeSucceededFuture(req.redirect(to: urlRoot))
     }
     
     public func folderTop(_ req: Request) throws -> EventLoopFuture<Response> {
         SessionController.setCurrentSubfolder(req, nil)
-        return req.eventLoop.makeSucceededFuture(req.redirect(to: "/x"))
+        return req.eventLoop.makeSucceededFuture(req.redirect(to: urlRoot))
     }
     
     
@@ -127,16 +132,16 @@ class ContentController: RouteCollection {
         }
         folder = folder + fp.fileName
         SessionController.setCurrentSubfolder(req, folder)
-        return req.eventLoop.makeSucceededFuture(req.redirect(to: "/x"))
+        return req.eventLoop.makeSucceededFuture(req.redirect(to: urlRoot))
     }
     
     public func goToFolder(_ req: Request) throws -> EventLoopFuture<Response> {
         let fp = try decodeFilePointer(req, parameter: "newFolder")
-        SessionController.setCurrentSubfolder(req, fp.fileName)
-        return req.eventLoop.makeSucceededFuture(req.redirect(to: "/x"))
+        SessionController.setCurrentSubfolder(req, fp.directory)
+        return req.eventLoop.makeSucceededFuture(req.redirect(to: urlRoot))
     }
     
-    public func upload(_ req: Request) throws -> EventLoopFuture<String> {
+    public func upload(_ req: Request) throws -> EventLoopFuture<Response> {
         struct Input: Content {
             var file: File
         }
@@ -153,13 +158,33 @@ class ContentController: RouteCollection {
                 return req.application.fileio.openFile(path: newfile, mode: .write, flags: .allowFileCreation(posixMode: 0x744), eventLoop: req.eventLoop).flatMap { handle in
                     return req.application.fileio.write(fileHandle: handle, buffer: input.file.data, eventLoop: req.eventLoop).flatMapThrowing { _ in
                         try handle.close()
-                        return input.file.filename
+                        return req.redirect(to:self.urlRoot)
                     }
                 }
             }
             catch {
                 return req.eventLoop.makeFailedFuture(Abort(.internalServerError, reason: error.localizedDescription))
             }
+        }
+    }
+    
+    public func newFolder(_ req: Request) throws -> EventLoopFuture<Response> {
+        guard let newFolder = req.parameters.get("newFolder") else {
+            throw Abort(.badRequest, reason: "Invalid folder identifier requested.")
+        }
+        
+        guard newFolder.count >= 1 else {
+            throw Abort(.badRequest, reason: "Invalid folder identifier requested: \(newFolder)")
+        }
+        
+        return try currentRepoContext(req).flatMapThrowing { repoListing in
+            guard let repoListing = repoListing else {
+                throw Abort(.badRequest, reason: "Invalid repo specified for new folder.")
+            }
+            
+            let dir = self.findDirectory(on: req, for: repoListing) + "/" + newFolder
+            try self.fileManager.createDirectory(atPath: dir, withIntermediateDirectories: false, attributes: nil)
+            return req.redirect(to: self.urlRoot)
         }
     }
 
@@ -197,14 +222,6 @@ class ContentController: RouteCollection {
         return directory + "/" + sub
     }
     
-    private func subfolderPush(_ req: Request, _ new: String) {
-        guard let path = SessionController.currentSubfolder(req) else {
-            SessionController.setCurrentSubfolder(req, new)
-            return
-        }
-        SessionController.setCurrentSubfolder(req, path + "/" + new)
-    }
-    
     private func subfolderPop(_ req: Request) {
         guard let path = SessionController.currentSubfolder(req) else {
             return
@@ -237,7 +254,6 @@ class ContentController: RouteCollection {
     
     private func currentRepoContext(_ req: Request) throws -> EventLoopFuture<RepoListing?> {
         return try repoContext(req).map { context in
-            
             context.filter{$0.isSelected}.first
         }
     }
@@ -256,8 +272,7 @@ class ContentController: RouteCollection {
                 }
                 path1 += folder[j]
             }
-            print (path1)
-            print (properties.count)
+            print (path1);
             let pointer = try "/folderdir/" + FilePointer(directory: path1, fileName: folder[i], isDirectory: true).encoded()
             let fp = FileProp(name: folder[i], modified: nil, isDirectory: true, size: nil, link: pointer, allowDeletes: false)
             properties.append(fp)

@@ -28,10 +28,18 @@
             return false;
         });
         
+                
         $("\#sel-repo").change(function() {
             var repo = $("\#sel-repo option:checked").val(); 
             var link = "changeRepo/" + repo;
             ajaxReload(link);
+        });
+        
+        $("\#btnNewFolder").click(function() {
+            alert();
+            $.post("newFolder", {"newFolder" : "new folder name"}, function(){
+                location.reload();
+            });
         });
         
         
@@ -76,6 +84,8 @@
         <input type="file" name="file"><br><br>
         <input type="submit" value="Submit">
     </form>
+    
+    <button id="btnNewFolder">New Folder</button>
     
     
 </body>
