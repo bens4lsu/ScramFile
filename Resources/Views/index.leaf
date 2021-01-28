@@ -45,6 +45,12 @@
             <option value="#(repo.repoId)" #if(repo.isSelected): selected #endif>#(repo.repoName)</option>
         #endfor
     </select>
+    
+    Path:
+    <ul>
+        <li><a href="/top">#(title)</a> /</li> 
+        #for(path in pathAtTop): <li><a href="#(path.link)">#(path.name)</a> / </li>#endfor
+    </ul>
   
     <table>
         <thead><tr>

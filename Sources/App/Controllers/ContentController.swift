@@ -19,7 +19,7 @@ class ContentController: RouteCollection {
         var availableRepos: [RepoListing]
         var showRepoSelector: Bool
         var showAdmin: Bool
-        var pathAtTop: [String: String]
+        var pathAtTop: [FileProp]
     }
 
     struct FileProp: Encodable {
@@ -60,8 +60,10 @@ class ContentController: RouteCollection {
         routes.get("download", ":filePointer", use: streamFile)
         routes.get("changeRepo", ":newRepo", use: changeRepo)
         routes.get("folderUp", use: folderUp)
-        routes.get("folder", ":newFolder", use: newFolder)
+        routes.get("folder", ":newFolder", use: goIntoFolder)
+        routes.get("folderdir", ":newFolder", use:goToFolder)
         routes.post("upload", use: upload)
+        routes.get("top", use: folderTop)
     }
     
     
@@ -80,20 +82,14 @@ class ContentController: RouteCollection {
                 return req.view.render("index", context)
             }
             catch {
-                return req.eventLoop.makeFailedFuture(Abort(.internalServerError, reason: "failure in RenderHome method."))
+                return req.eventLoop.makeFailedFuture(Abort(.internalServerError, reason: "failure in RenderHome method:  \(error)."))
             }
         }
     }
     
     
     public func streamFile(_ req: Request) throws -> EventLoopFuture<Response> {
-        guard let  filePointer = req.parameters.get("filePointer"),
-              let data = Data(base64Encoded: filePointer)
-        else {
-            throw Abort(.badRequest, reason: "Invalid file requested.")
-        }
-        let decoder = JSONDecoder()
-        let fp = try decoder.decode(FilePointer.self, from: data)
+        let fp = try decodeFilePointer(req, parameter: "filePointer")
         let filepath = fp.directory + "/" + fp.fileName
         let response = req.fileio.streamFile(at: filepath)
         response.headers.add(name: "content-disposition", value: "attachment; filename=\"\(fp.fileName)\"")
@@ -101,33 +97,43 @@ class ContentController: RouteCollection {
     }
     
     
-    public func changeRepo(_ req: Request) throws -> EventLoopFuture<View> {
+    public func changeRepo(_ req: Request) throws -> EventLoopFuture<Response> {
         guard let string = req.parameters.get("newRepo"),
               let newRepoId = UUID(uuidString: string) else {
             throw Abort(.badRequest, reason: "Invalid repo identifier requested.")
         }
         
         SessionController.setCurrentRepo(req, newRepoId)
-        return try renderHome(req)
+        return req.eventLoop.makeSucceededFuture(req.redirect(to: "/x"))
     }
     
     
-    public func folderUp(_ req: Request) throws -> EventLoopFuture<View> {
+    public func folderUp(_ req: Request) throws -> EventLoopFuture<Response> {
         subfolderPop(req)
-        return try renderHome(req)
+        return req.eventLoop.makeSucceededFuture(req.redirect(to: "/x"))
+    }
+    
+    public func folderTop(_ req: Request) throws -> EventLoopFuture<Response> {
+        SessionController.setCurrentSubfolder(req, nil)
+        return req.eventLoop.makeSucceededFuture(req.redirect(to: "/x"))
     }
     
     
-    public func newFolder(_ req: Request) throws -> EventLoopFuture<View> {
-        guard let filePointer = req.parameters.get("newFolder"),
-              let data = Data(base64Encoded: filePointer)
-        else {
-            throw Abort(.badRequest, reason: "Invalid file requested.")
+    public func goIntoFolder(_ req: Request) throws -> EventLoopFuture<Response> {
+        let fp = try decodeFilePointer(req, parameter: "newFolder")
+        var folder = (SessionController.currentSubfolder(req) ?? "").replacingOccurrences(of: "//", with: "/")
+        if folder != "" {
+            folder += "/"
         }
-        let decoder = JSONDecoder()
-        let fp = try decoder.decode(FilePointer.self, from: data)
+        folder = folder + fp.fileName
+        SessionController.setCurrentSubfolder(req, folder)
+        return req.eventLoop.makeSucceededFuture(req.redirect(to: "/x"))
+    }
+    
+    public func goToFolder(_ req: Request) throws -> EventLoopFuture<Response> {
+        let fp = try decodeFilePointer(req, parameter: "newFolder")
         SessionController.setCurrentSubfolder(req, fp.fileName)
-        return try renderHome(req)
+        return req.eventLoop.makeSucceededFuture(req.redirect(to: "/x"))
     }
     
     public func upload(_ req: Request) throws -> EventLoopFuture<String> {
@@ -203,12 +209,9 @@ class ContentController: RouteCollection {
         guard let path = SessionController.currentSubfolder(req) else {
             return
         }
-        if let range = path.range(of: "/", options: .backwards) {
-            let updated = String(path[range])
-            SessionController.setCurrentSubfolder(req, updated)
-            return
-        }
-        SessionController.setCurrentSubfolder(req, nil)
+        let updated = path.everythingBeforeLastOccurence(of: "/")
+        SessionController.setCurrentSubfolder(req, updated)
+        return
     }
     
     private func repoContext(_ req: Request) throws -> EventLoopFuture<[RepoListing]>{
@@ -239,22 +242,36 @@ class ContentController: RouteCollection {
         }
     }
     
-    func folderHeirarchy(_ req: Request) throws ->  [String: String] {
+    func folderHeirarchy(_ req: Request) throws ->  [FileProp] {
         guard let subfolderString = SessionController.currentSubfolder(req) else {
-            return [:]
+            return []
         }
-        var filePointers = [String: String]()
+        var properties = [FileProp]()
         let folder = subfolderString.components(separatedBy: "/")
-        for i in (0...folder.count) {
-            var path1 = "folder"
+        for i in (0...(folder.count - 1)) {
+            var path1 = ""
             for j in (0...i){
-                path1 += "/" + folder[j]
+                if path1 != "" {
+                    path1 += "/"
+                }
+                path1 += folder[j]
             }
-            let fp = try FilePointer(directory: folder[i], fileName: path1, isDirectory: true).encoded()
-            filePointers[folder[i]] = fp
+            print (path1)
+            print (properties.count)
+            let pointer = try "/folderdir/" + FilePointer(directory: path1, fileName: folder[i], isDirectory: true).encoded()
+            let fp = FileProp(name: folder[i], modified: nil, isDirectory: true, size: nil, link: pointer, allowDeletes: false)
+            properties.append(fp)
         }
-        return filePointers
+        return properties
     }
-
-
+    
+    private func decodeFilePointer(_ req: Request, parameter: String) throws -> FilePointer {
+        guard let filePointer = req.parameters.get(parameter),
+              let data = Data(base64Encoded: filePointer)
+        else {
+            throw Abort(.badRequest, reason: "Invalid file requested: \(parameter)")
+        }
+        let decoder = JSONDecoder()
+        return try decoder.decode(FilePointer.self, from: data)
+    }
 }
