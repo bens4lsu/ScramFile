@@ -34,6 +34,7 @@ class SecurityController: RouteCollection {
     func boot(routes: RoutesBuilder) throws {
         routes.group("security") { group in
             group.get("login", use: renderLogin)
+        
             //group.get("create", use: renderUserCreate)
             group.get("change-password", use: renderUserCreate)
 //            group.get("request-password-reset", use: renderPasswordResetForm)
@@ -46,6 +47,16 @@ class SecurityController: RouteCollection {
 //            group.post("request-password-reset", use: sendPWResetEmail)
 //            group.post("password-reset-process", ":resetString", use: verifyAndChangePassword)
         }
+        routes.get("login", use: loginTemp)
+    }
+    
+    func loginTemp(_ req: Request) throws -> EventLoopFuture<Response> {
+        SessionController.setUserId(req, UUID(uuidString: "DCBE4EAA-5CAF-11EB-A925-080027363641")!)
+        SessionController.setIsAdmin(req, true)
+        let accessList = [UserRepoAccess(repoId: UUID(uuidString: "66F967A6-5CCD-11EB-ADE5-08002775BC34")!, accessLevel: .full),
+                          UserRepoAccess(repoId: UUID(uuidString: "87E7A0CC-5CEA-11EB-8A65-08002775BC34")!, accessLevel: .full)]
+        try SessionController.setRepoAccesssList(req, accessList)
+        return req.eventLoop.makeSucceededFuture(req.redirect(to: ContentController.urlRoot))
     }
     
     
@@ -153,7 +164,7 @@ class SecurityController: RouteCollection {
     
     
     static func verifyAccess(_ req: Request, repo: UUID, onSuccess: @escaping () throws -> EventLoopFuture<Response>) throws -> EventLoopFuture<Response> {
-        guard let available = SessionController.repoAcccessList(req) else {
+        guard let available = SessionController.getRepoAcccessList(req) else {
             throw Abort(.unauthorized)
         }
         
