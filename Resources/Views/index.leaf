@@ -41,6 +41,17 @@
             });
         });
         
+        $("\#btnDeleteChecked").click(function() {
+            files = $("input:checkbox:checked").map(function() {
+                return $(this).following("a").attr("href")   
+            }.get();
+            console.log(files);
+            
+            $.post("createFolder", {"newFolder" : "new folder name"}, function(){
+                location.reload();
+            });
+        });
+        
         
      });  </script>
     
@@ -69,7 +80,7 @@
         </tr></thead>
         <tbody>
             #for(file in fileProps):
-                <tr><td>(checkbox)</td>
+                <tr><td><input type="checkbox"</td>
                     <td>#(file.isDirectory)</td>
                     <td><a href="#(file.link)" class="a-download">#(file.name)</a></td>
                     <td>#date(file.modified, "MM/dd/yyyy hh:mm")</td>
@@ -85,6 +96,7 @@
     </form>
     
     <button id="btnNewFolder">New Folder</button>
+    <button id="deleteChecked">Delete Checked</button>
     
     
 </body>

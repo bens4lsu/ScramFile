@@ -74,15 +74,17 @@ class ContentController: RouteCollection {
     // MARK: Request handlers
     
     func renderHome(_ req: Request) throws -> EventLoopFuture<View> {
-        let access = SessionController.getAccessLevelToCurrentRepo(req)
-        guard access == .read || access == .full else {
-            throw Abort(.unauthorized, reason: "User does not have access to this repository.")
-        }
-        
         return try repoContext(req).flatMap { repoContext in
             do {
                 let currentRepo = repoContext.filter{$0.isSelected}.first ?? repoContext[0]
                 SessionController.setCurrentRepo(req, currentRepo.repoId)
+                
+                let access = SessionController.getAccessLevelToCurrentRepo(req)
+                guard access == .read || access == .full else {
+                    let uid = (try? SessionController.getUserId(req).uuidString) ?? "nil"
+                    throw Abort(.unauthorized, reason: "User does not have access to this repository.  uid = \(uid)   repoid = \(currentRepo)")
+                }
+                
                 let directory = self.findDirectory(on: req, for: currentRepo)
                 let contents = try self.directoryContents(on: req, for: directory)
                 let showSelector = repoContext.count > 1

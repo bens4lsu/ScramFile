@@ -21,7 +21,7 @@ class SessionController {
     }
 
     static func setUserId(_ req: Request, _ userId: UUID) {
-        req.session.data["uuid"] = userId.uuidString
+        req.session.data["userId"] = userId.uuidString
     }
 
     static func getIsAdmin(_ req: Request) -> Bool {
@@ -62,7 +62,17 @@ class SessionController {
         return try? decoder.decode([SecurityController.UserRepoAccess].self, from: data)
     }
     
+    static func setRepoAccesssList(_ req: Request, _ accessList: [SecurityController.UserRepoAccess]) throws {
+        let encoder = JSONEncoder()
+        let data = try encoder.encode(accessList)
+        req.session.data["userRepoAccess"] = data.base64EncodedString()
+    }
+    
     static func getAccessLevelToCurrentRepo(_ req: Request) -> AccessLevel {
+        if self.getIsAdmin(req) {
+            return .full
+        }
+              
         guard let accessList = getRepoAcccessList(req),
               let currentRepo = getCurrentRepo(req),
               let accessToCurrent = accessList.filter({$0.repoId == currentRepo}).first
@@ -73,12 +83,7 @@ class SessionController {
     }
     
     
-    static func setRepoAccesssList(_ req: Request, _ accessList: [SecurityController.UserRepoAccess]) throws {
-        let encoder = JSONEncoder()
-        let data = try encoder.encode(accessList)
-        req.session.data["userRepoAccess"] = data.base64EncodedString()
-    }
-    
+
     
     
     static func kill(_ req: Request) {

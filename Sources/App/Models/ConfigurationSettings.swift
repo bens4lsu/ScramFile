@@ -43,6 +43,7 @@ class ConfigurationSettings: Decodable {
     }
     
     let database: ConfigurationSettings.Database
+    let listenOnPort: Int
     let smtp: ConfigurationSettings.Smtp
     let emailMessages: [String: ConfigurationSettings.Message]
     
@@ -54,6 +55,7 @@ class ConfigurationSettings: Decodable {
             let data = try Data(contentsOf: url)
             let decoder = try JSONDecoder().decode(ConfigurationSettings.self, from: data)
             self.database = decoder.database
+            self.listenOnPort = decoder.listenOnPort
             self.smtp = decoder.smtp
             self.emailMessages = decoder.emailMessages
             

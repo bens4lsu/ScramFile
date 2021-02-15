@@ -52,9 +52,9 @@ class SecurityController: RouteCollection {
     
     func loginTemp(_ req: Request) throws -> EventLoopFuture<Response> {
         SessionController.setUserId(req, UUID(uuidString: "DCBE4EAA-5CAF-11EB-A925-080027363641")!)
-        SessionController.setIsAdmin(req, true)
-        let accessList = [UserRepoAccess(repoId: UUID(uuidString: "66F967A6-5CCD-11EB-ADE5-08002775BC34")!, accessLevel: .full),
-                          UserRepoAccess(repoId: UUID(uuidString: "87E7A0CC-5CEA-11EB-8A65-08002775BC34")!, accessLevel: .full)]
+        SessionController.setIsAdmin(req, false)
+        let accessList = [UserRepoAccess(repoId: UUID(uuidString: "C902CC11-5CCE-11EB-ADE5-08002775BC34")!, accessLevel: .full),
+                          UserRepoAccess(repoId: UUID(uuidString: "CFE61787-5CCE-11EB-ADE5-08002775BC34")!, accessLevel: .full)]
         try SessionController.setRepoAccesssList(req, accessList)
         return req.eventLoop.makeSucceededFuture(req.redirect(to: ContentController.urlRoot))
     }

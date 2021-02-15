@@ -21,6 +21,8 @@ public func configure(_ app: Application) throws {
         tlsConfiguration: nil
     ), as: .mysql)
     
+    app.http.server.configuration.port = settings.listenOnPort
+    
     app.views.use(.leaf)
     
     
