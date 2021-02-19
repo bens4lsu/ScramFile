@@ -57,7 +57,7 @@ class SessionController {
               let data = Data(base64Encoded: sessData) else {
             return nil
         }
-        
+                
         let decoder = JSONDecoder()
         return try? decoder.decode([SecurityController.UserRepoAccess].self, from: data)
     }
@@ -81,10 +81,6 @@ class SessionController {
         }
         return accessToCurrent.accessLevel
     }
-    
-    
-
-    
     
     static func kill(_ req: Request) {
         req.session.data = SessionData()

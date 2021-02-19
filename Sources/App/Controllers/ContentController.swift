@@ -20,6 +20,7 @@ class ContentController: RouteCollection {
         var showRepoSelector: Bool
         var showAdmin: Bool
         var pathAtTop: [FileProp]
+        var hostInfo: Host
     }
 
     struct FileProp: Encodable {
@@ -48,6 +49,7 @@ class ContentController: RouteCollection {
         var repoName: String
         var isSelected: Bool
         var repoFolder: String
+        var hostId: UUID
     }
     
     let fileManager = FileManager.default
@@ -85,12 +87,20 @@ class ContentController: RouteCollection {
                     throw Abort(.unauthorized, reason: "User does not have access to this repository.  uid = \(uid)   repoid = \(currentRepo)")
                 }
                 
-                let directory = self.findDirectory(on: req, for: currentRepo)
-                let contents = try self.directoryContents(on: req, for: directory)
-                let showSelector = repoContext.count > 1
-                let pathAtTop = try self.folderHeirarchy(req)
-                let context = HomeContext(title: "Secure File Repository:  \(currentRepo.repoName)", fileProps: contents, availableRepos: repoContext, showRepoSelector: showSelector, showAdmin: SessionController.getIsAdmin(req), pathAtTop: pathAtTop)
-                return req.view.render("index", context)
+                return try HostController().getHostContext(req, hostId: currentRepo.hostId).flatMap() { host in
+                    do {
+                        let directory = self.findDirectory(on: req, for: currentRepo)
+                        let contents = try self.directoryContents(on: req, for: directory)
+            
+                        let showSelector = repoContext.count > 1
+                        let pathAtTop = try self.folderHeirarchy(req)
+                        let context = HomeContext(title: "Secure File Repository:  \(currentRepo.repoName)", fileProps: contents, availableRepos: repoContext, showRepoSelector: showSelector, showAdmin: SessionController.getIsAdmin(req), pathAtTop: pathAtTop, hostInfo: host)
+                        return req.view.render("index", context)
+                    }
+                    catch {
+                        return req.eventLoop.makeFailedFuture(Abort(.internalServerError, reason: "failure in RenderHome method:  \(error)."))
+                    }
+                }
             }
             catch {
                 return req.eventLoop.makeFailedFuture(Abort(.internalServerError, reason: "failure in RenderHome method:  \(error)."))
@@ -234,6 +244,30 @@ class ContentController: RouteCollection {
     }
 
     
+    // MARK:  Futures that help build the results for the public methods.
+    
+    private func repoContext(_ req: Request) throws -> EventLoopFuture<[RepoListing]>{
+        return try UserRepo.query(on: req.db).filter(\.$userId == SessionController.getUserId(req)).join(Repo.self, on: \UserRepo.$repoId == \Repo.$id).all().flatMapThrowing { userRepos in
+            guard userRepos.count >= 1 else {
+                throw Abort(.notFound, reason: "User does not have access to any file repositories.")
+            }
+            
+            var repoListing = [RepoListing]()
+            for userRepo in userRepos {
+                let repo = try userRepo.joined(Repo.self)
+                
+                guard let id = repo.id else {
+                    throw Abort(.internalServerError, reason: "Unwrapped repo id problem.  This really can't happen")
+                }
+                
+                let isSelected = repo.id == SessionController.getCurrentRepo(req)
+                repoListing.append(RepoListing(repoId: id, repoName: repo.repoName, isSelected: isSelected, repoFolder: repo.repoFolder, hostId: repo.hostId))
+            }
+            return repoListing.sorted(by: \.repoName)
+        }
+    }
+    
+    
     // MARK: Private helper methods
 
     private func directoryContents(on req: Request, for directory: String) throws -> [FileProp] {
@@ -276,26 +310,6 @@ class ContentController: RouteCollection {
         return
     }
     
-    private func repoContext(_ req: Request) throws -> EventLoopFuture<[RepoListing]>{
-        return try UserRepo.query(on: req.db).filter(\.$userId == SessionController.getUserId(req)).join(Repo.self, on: \UserRepo.$repoId == \Repo.$id).all().flatMapThrowing { userRepos in
-            guard userRepos.count >= 1 else {
-                throw Abort(.notFound, reason: "User does not have access to any file repositories.")
-            }
-            
-            var repoListing = [RepoListing]()
-            for userRepo in userRepos {
-                let repo = try userRepo.joined(Repo.self)
-                
-                guard let id = repo.id else {
-                    throw Abort(.internalServerError, reason: "Unwrapped repo id problem.  This really can't happen")
-                }
-                
-                let isSelected = repo.id == SessionController.getCurrentRepo(req)
-                repoListing.append(RepoListing(repoId: id, repoName: repo.repoName, isSelected: isSelected, repoFolder: repo.repoFolder))
-            }
-            return repoListing.sorted(by: \.repoName)
-        }
-    }
     
     private func currentRepoContext(_ req: Request) throws -> EventLoopFuture<RepoListing?> {
         return try repoContext(req).map { context in
@@ -342,4 +356,5 @@ class ContentController: RouteCollection {
         let decoder = JSONDecoder()
         return try decoder.decode(FilePointer.self, from: data)
     }
+
 }

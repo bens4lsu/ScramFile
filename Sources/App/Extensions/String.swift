@@ -15,4 +15,16 @@ extension String {
         }
         return String(self.prefix(upTo: index))
     }
+    
+    func toObject<T: Decodable>() -> T? {
+        guard let data = self.data(using: .utf8),
+              let decoded = try? JSONDecoder().decode(T.self, from:data) else {
+            return nil
+        }
+        return decoded
+    }
 }
+
+
+
+
