@@ -69,7 +69,8 @@ class ContentController: RouteCollection {
         routes.get("folderdir", ":newFolder", use:goToFolder)
         routes.post("upload", use: upload)
         routes.get("top", use: folderTop)
-        routes.post("createFolder", use:createFolder)
+        routes.post("createFolder", use: createFolder)
+        routes.post("delete", use: delete)
     }
     
     
@@ -189,7 +190,7 @@ class ContentController: RouteCollection {
     
     func delete(_ req: Request) throws -> EventLoopFuture<Response> {
         struct FPPost: Codable {
-            var pointer: String
+            var pointers: [String]
         }
         
         guard SessionController.getAccessLevelToCurrentRepo(req) == .full else {
@@ -203,12 +204,16 @@ class ContentController: RouteCollection {
             }
             
             let path = self.findDirectory(on: req, for: repo)
-            let pointers = try req.content.decode([FPPost].self).map{"\(path)/\($0.pointer)"}
-            for pointer in pointers {
-                if let url = URL(string: pointer) {
-                    try self.fileManager.removeItem(at: url)
-                }
-            }
+            let pointers = try req.content.decode(FPPost.self).pointers
+            
+            print (req.content)
+            
+//
+//            for pointer in pointers {
+//                if let url = URL(string: pointer) {
+//                    try self.fileManager.removeItem(at: url)
+//                }
+//            }
             return req.redirect(to: Self.urlRoot)
         }
     }
@@ -289,7 +294,7 @@ class ContentController: RouteCollection {
         if SessionController.getCurrentSubfolder(req) != nil {
             dirList.append(FileProp(name: "..", modified: Date(), isDirectory: true, size: "-", link: "folderUp", allowDeletes: false))
         }
-        return dirList
+        return dirList.sorted(by: \.isDirectory, thenBy: \.name)
     }
     
     

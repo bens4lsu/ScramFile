@@ -53,19 +53,14 @@ class SessionController {
     }
     
     static func getRepoAcccessList(_ req: Request) -> [SecurityController.UserRepoAccess]? {
-        guard let sessData = req.session.data["userRepoAccess"],
-              let data = Data(base64Encoded: sessData) else {
+        guard let sessData = req.session.data["userRepoAccess"] else {
             return nil
         }
-                
-        let decoder = JSONDecoder()
-        return try? decoder.decode([SecurityController.UserRepoAccess].self, from: data)
+        return sessData.toObject()
     }
     
-    static func setRepoAccesssList(_ req: Request, _ accessList: [SecurityController.UserRepoAccess]) throws {
-        let encoder = JSONEncoder()
-        let data = try encoder.encode(accessList)
-        req.session.data["userRepoAccess"] = data.base64EncodedString()
+    static func setRepoAccesssList(_ req: Request, _ accessList: [SecurityController.UserRepoAccess]) {
+        req.session.data["userRepoAccess"] = accessList.toString(extStringEncoding: .base64Encoded)
     }
     
     static func getAccessLevelToCurrentRepo(_ req: Request) -> AccessLevel {

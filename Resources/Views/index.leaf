@@ -2,12 +2,6 @@
     #export("javascript"):
     <script>
         $(document).ready(function(){
-    
-            function ajaxReload(link) {
-                $.get(link).done(function(){
-                    location.reload();
-                });
-            }
         
             $("a.a-download").on("click", function(e){
                 e.preventDefault();
@@ -27,25 +21,38 @@
                 var link = "changeRepo/" + repo;
                 ajaxReload(link);
             });
+        });
         
-            $("\#btnNewFolder").click(function() {
-                $.post("createFolder", {"newFolder" : "new folder name"}, function(){
-                    location.reload();
-                });
+        function ajaxReload(link) {
+            $.get(link).done(function(){
+                location.reload();
             });
-        
-            $("\#btnDeleteChecked").click(function() {
-                files = $("input:checkbox:checked").map(function() {
-                    return $(this).following("a").attr("href")   
-                }.get());
-                console.log(files);
-            
-                $.post("createFolder", {"newFolder" : "new folder name"}, function(){
-                    location.reload();
-                });
-            });
+        }
 
-        });  
+        function deleteChecked() {
+            files = $("input:checkbox:checked").map(function() {
+                return $(this)
+                    .parent()
+                    .siblings()
+                    .find(".a-download")
+                    .attr("href")
+                    .substr(9);
+            });
+            
+            console.log(files)
+            
+            $.post("delete", {"pointers" : files}, function(){
+                location.reload();
+            });
+        }
+        
+        function newFolder() {
+            $.post("createFolder", {"newFolder" : "new folder name"}, function(){
+                location.reload();
+            });
+        }
+        
+          
     </script>
     #endexport
     
@@ -54,23 +61,24 @@
         <h1>#(title)</h1>
   
     
-        Path:
-        <ul>
-            <li><a href="/top">#(title)</a> /</li> 
-            #for(path in pathAtTop): <li><a href="#(path.link)">#(path.name)</a> / </li>#endfor
-        </ul>
+        <div id="path"><span>Path:</span>
+            <ul>
+                <li><a href="/top">#(title)</a> /</li> 
+                #for(path in pathAtTop): <li><a href="#(path.link)">#(path.name)</a> / </li>#endfor
+            </ul>
+        </div>
   
         <table>
             <thead><tr>
-                <th>&nbsp;</th>
-                <th>&nbsp;</th>
-                <th>Name</th>
-                <th>Modified</th>
-                <th>Size</th>
+                <th class="col1">&nbsp;</th>
+                <th class="col2">&nbsp;</th>
+                <th class="col3">Name</th>
+                <th class="col4">Modified</th>
+                <th class="col5">Size</th>
             </tr></thead>
             <tbody>
                 #for(file in fileProps):
-                    <tr><td><input type="checkbox"</td>
+                    <tr><td><input type="checkbox"></td>
                         <td>#(file.isDirectory)</td>
                         <td><a href="#(file.link)" class="a-download">#(file.name)</a></td>
                         <td>#date(file.modified, "MM/dd/yyyy hh:mm")</td>
@@ -79,16 +87,19 @@
                 #endfor
             </tbody>
         </table>
+        
+        <div id="options">
+            <p><a href="" onclick="createFolder()">Create Folder</a></p>
+            <p><a href="">Upload File</a></p>
+            <p><a href="" onclick="deleteChecked()">Delete Checked</a></p>
+        </div>
     
     <form action="/upload" method="post" enctype="multipart/form-data">
         <input type="file" name="file"><br><br>
         <input type="submit" value="Submit">
     </form>
     
-    #endexport
-
+    <div id="dlg
     
-    <button id="btnNewFolder">New Folder</button>
-    <button id="deleteChecked">Delete Checked</button>
-    
+    #endexport    
 #endextend    

@@ -55,7 +55,7 @@ class SecurityController: RouteCollection {
         SessionController.setIsAdmin(req, false)
         let accessList = [UserRepoAccess(repoId: UUID(uuidString: "C902CC11-5CCE-11EB-ADE5-08002775BC34")!, accessLevel: .full),
                           UserRepoAccess(repoId: UUID(uuidString: "CFE61787-5CCE-11EB-ADE5-08002775BC34")!, accessLevel: .full)]
-        try SessionController.setRepoAccesssList(req, accessList)
+        SessionController.setRepoAccesssList(req, accessList)
         return req.eventLoop.makeSucceededFuture(req.redirect(to: ContentController.urlRoot))
     }
     
@@ -124,7 +124,7 @@ class SecurityController: RouteCollection {
                     for userRepo in userRepos {
                         userRepoAccessList.append(UserRepoAccess(repoId: userRepo.repoId, accessLevel: userRepo.accessLevel))
                     }
-                    try SessionController.setRepoAccesssList(req, userRepoAccessList)
+                    SessionController.setRepoAccesssList(req, userRepoAccessList)
                     return req.redirect(to: "/x")
                 }
             }

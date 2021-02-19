@@ -17,7 +17,7 @@ extension String {
     }
     
     func toObject<T: Decodable>() -> T? {
-        guard let data = self.data(using: .utf8),
+        guard let data = Data(base64Encoded: self),
               let decoded = try? JSONDecoder().decode(T.self, from:data) else {
             return nil
         }
