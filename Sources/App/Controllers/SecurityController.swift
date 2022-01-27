@@ -9,7 +9,7 @@ import Foundation
 import Vapor
 import Fluent
 import FluentMySQLDriver
-import SwiftSMTP
+import SMTPKitten
 
 
 
@@ -20,14 +20,14 @@ class SecurityController: RouteCollection {
         var accessLevel: AccessLevel
     }
     
-    let mailMessages: [String: ConfigurationSettings.Message]
-    let concordMail: ConcordMail
+    let settings: ConfigurationSettings
     
-    init() {
-        
-        let settings = ConfigurationSettings()
-        self.concordMail = ConcordMail(configKeys: settings.smtp)
-        self.mailMessages = settings.emailMessages
+    var concordMail: ConcordMail {
+        ConcordMail(configKeys: settings)
+    }
+    
+    init(_ settings: ConfigurationSettings) {
+        self.settings = settings
     }
     
     
@@ -37,14 +37,14 @@ class SecurityController: RouteCollection {
         
             //group.get("create", use: renderUserCreate)
             group.get("change-password", use: renderUserCreate)
-//            group.get("request-password-reset", use: renderPasswordResetForm)
+            group.get("request-password-reset", use: renderPasswordResetForm)
             group.get("check-email", use: renderCheckEmail)
-//            group.get("password-reset-process", ":resetString", use: verifyPasswordResetRequest)
+            group.get("password-reset-process", ":resetString", use: verifyPasswordResetRequest)
             
             group.post("login", use: login)
 //            group.post("create", use: createUser)
             //group.post("change-password", use: changePassword)
-//            group.post("request-password-reset", use: sendPWResetEmail)
+            group.post("request-password-reset", use: sendPWResetEmail)
 //            group.post("password-reset-process", ":resetString", use: verifyAndChangePassword)
         }
         routes.get("login", use: loginTemp)
@@ -77,11 +77,15 @@ class SecurityController: RouteCollection {
     
     // MARK:  Methods connected to routes that return data
     
-    private func login(_ req: Request) throws -> EventLoopFuture<Response> {
-        let emailParam = req.parameters.get("email")
-        let passwordParam = req.parameters.get("password")
+    private func login(_ req: Request) async throws -> Response {
+        struct Form: Content {
+            var email: String?
+            var password: String?
+        }
         
-        guard let email = emailParam, let password = passwordParam else {
+        let content = try req.content.decode(Form.self)
+
+        guard let email = content.email, let password = content.password else {
             throw Abort(.badRequest)
         }
         
@@ -89,49 +93,36 @@ class SecurityController: RouteCollection {
             throw Abort(.badRequest)
         }
         
-        return User.query(on: req.db).filter(\.$emailAddress == email).all().flatMap { userMatches in
-            
-            do {
-            
-                guard userMatches.count < 2 else {
-                    throw Abort(.unauthorized, reason: "More than one user exists with that email address.")
-                }
-                
-                guard userMatches.count == 1 else {
-                    throw Abort(.unauthorized, reason: "No user exists for that email address.")
-                }
-                
-                let user = userMatches[0]
-                // verify that password submitted matches
-                guard try Bcrypt.verify(password, created: user.passwordHash) else {
-                    throw Abort(.unauthorized, reason: "Could not verify password.")
-                }
-                
-                // login success
-                guard user.isActive else {
-                    throw Abort(.unauthorized, reason: "User's system access has been revoked.")
-                }
-                
-                // let's store a list of repos that the user has access to to make it easy to check access when they
-                // change repos.
-                
-                guard let userId = user.id else {
-                    throw Abort(.internalServerError, reason: "Error in user's configuration: \(user.userName)")
-                }
-                
-                return UserRepo.query(on: req.db).filter(\.$userId == userId).all().flatMapThrowing { userRepos in
-                    var userRepoAccessList = [UserRepoAccess]()
-                    for userRepo in userRepos {
-                        userRepoAccessList.append(UserRepoAccess(repoId: userRepo.repoId, accessLevel: userRepo.accessLevel))
-                    }
-                    SessionController.setRepoAccesssList(req, userRepoAccessList)
-                    return req.redirect(to: "/x")
-                }
+        let userMatches = try await User.query(on: req.db).filter(\.$emailAddress == email).all()
+        
+        let user: User =  try {
+            guard userMatches.count < 2 else {
+                throw Abort(.unauthorized, reason: "More than one user exists with that email address.")
             }
-            catch {
-                return req.eventLoop.makeFailedFuture(error)
+            
+            guard userMatches.count == 1 else {
+                throw Abort(.unauthorized, reason: "No user exists for that email address.")
             }
-        }
+            
+            let user = userMatches[0]
+            
+            // verify that password submitted matches
+            guard try Bcrypt.verify(password, created: user.passwordHash) else {
+                throw Abort(.unauthorized, reason: "Could not verify password.")
+            }
+            
+            // login success
+            guard user.isActive else {
+                throw Abort(.unauthorized, reason: "User's system access has been revoked.")
+            }
+            
+            //login sucess
+            return user
+        }()
+        
+        SessionController.setUserId(req, user.id!)
+        SessionController.setIsAdmin(req, user.isAdmin)
+        return req.redirect(to: "/top")
     }
     
     
@@ -178,22 +169,27 @@ class SecurityController: RouteCollection {
 
 
 // MARK:  Password reset methods
-/*
+
 extension SecurityController {
     
     private func renderPasswordResetForm(_ req: Request) throws -> EventLoopFuture<View> {
-        return try req.view().render("users-password-reset")
+        return req.view.render("users-password-reset")
     }
     
-    
-    private func sendPWResetEmail(_ req: Request) throws -> EventLoopFuture<Response> {
-        let email = try req.content.syncGet(String.self, at: "emailAddress")
+    private func sendPWResetEmail(_ req: Request) async throws -> Response {
+        struct Form: Content {
+            var emailAddress: String?
+        }
+        
+        let content = try req.content.decode(Form.self)
+        let email = content.emailAddress ?? ""
         
         guard email.count > 0 else {
             throw Abort(.badRequest, reason:  "No email address received for password reset.")
         }
         
-        return User.query(on: req).filter(\User.emailAddress == email).all().flatMap(to: Response.self) { userMatches in
+        let userMatches = try await User.query(on: req.db).filter(\.$emailAddress == email).all()
+        let user: User = try {
             guard userMatches.count < 2 else {
                 throw Abort(.unauthorized, reason: "More than one user exists with that email address.")
             }
@@ -203,99 +199,98 @@ extension SecurityController {
             }
             
             let user = userMatches[0]
-            let userId = user.id!
-            
-            let resetRequest = PasswordResetRequest(id: nil, exp: Date().addingTimeInterval(self.cache.configKeys.resetKeyExpDuration), person: userId)
-            return resetRequest.save(on: req).flatMap(to: Response.self) { reset in
-                
-                let mailSender = self.cache.configKeys.smtp.username
-                guard let resetKey = reset.id?.uuidString else {
-                    throw Abort(.internalServerError, reason: "Error getting unique key for tracking password reset request.")
-                }
-                
-                // TODO:  Delete expired keys
-                // TODO:  Delete any older (even unexpired) keys for this user.
-                
-                let (_, text) = self.getResetEmailBody(key: resetKey)
-                
-                //print ("Sending email to \(user.emailAddress)")
-                //let mail = Mailer.Message(from: mailSender, to: user.emailAddress, subject: "Project/Time Reset request", text: text, html: html)
-                
-                let mailFrom = Mail.User(name: nil, email: mailSender)
-                let mailTo = Mail.User(name: nil, email: user.emailAddress)
-
-                let mail = Mail(
-                    from: mailFrom,
-                    to: [mailTo],
-                    subject: "Project/Time Reset request",
-                    text: text
-                )
-                
-                return self.concordMail.send(req, mail).map(to: Response.self) { mailResult in
-                    
-                    switch mailResult {
-                    case .success:
-                        // redirect to page that tells them to check their email...
-                        return req.redirect(to: "/security/check-email")
-                    case .failure(let error):
-                        throw Abort (.internalServerError, reason: "Mail error:  \(error)")
-                    }
-                }
+            return user
+        }()
+        let userId = user.id!
+        let resetRequest = PasswordResetRequest(id: nil, exp: Date().addingTimeInterval(TimeInterval(settings.resetKeyExpDuration)), userId: userId)
+        try await resetRequest.save(on: req.db)  // sets resetRequest.id
+                            
+        let resetKey: String = try {
+            guard let resetKey = resetRequest.id?.uuidString else {
+                throw Abort(.internalServerError, reason: "Error getting unique key for tracking password reset request.")
             }
+            return resetKey
+        }()
+                        
+        // TODO:  Delete expired keys
+        // TODO:  Delete any older (even unexpired) keys for this user.
+                        
+        let (_, text) = self.getResetEmailBody(key: resetKey)
+        
+        let sendTo = ConcordMail.Mail.User(name: nil, email: email)
+        let sendFrom = ConcordMail.Mail.User(name: settings.smtp.friendlyName, email: settings.smtp.fromEmail)
+        let mail = ConcordMail.Mail(from: sendFrom, to: sendTo, subject: "Password Reset Link for Secure File Share", contentType: .html, text: text)
+        
+        let mailResult = try await self.concordMail.send(mail: mail)
+        switch mailResult {
+        case .success:
+            // redirect to page that tells them to check their email...
+            return req.redirect(to: "/security/check-email")
+        case .failure(let error):
+            throw Abort (.internalServerError, reason: "Mail error:  \(error)")
         }
     }
     
-    private func verifyKey(_ req: Request, resetKey: String) throws -> EventLoopFuture<PasswordResetRequest> {
+    
+    private func verifyKey(_ req: Request, resetKey: String) async throws -> PasswordResetRequest {
         
         guard let uuid = UUID(resetKey) else {
             throw Abort(.badRequest, reason: "No reset token read in request for password reset.")
         }
         
-        return PasswordResetRequest.query(on: req).filter(\.id == uuid).filter(\.exp >= Date()).first().map(to:PasswordResetRequest.self) { resetRequestW in
-            guard let resetRequest = resetRequestW else {
-                throw Abort(.badRequest, reason: "Reset link was invalid or expired.")
-            }
-            return resetRequest
+        let resetRequestW = try await PasswordResetRequest.query(on: req.db).filter(\.$id == uuid).filter(\.$exp >= Date()).first()
+        guard let resetRequest = resetRequestW else {
+            throw Abort(.badRequest, reason: "Reset link was invalid or expired.")
         }
+        return resetRequest
     }
+     
     
-    private func verifyPasswordResetRequest(req: Request) throws -> EventLoopFuture<View> {
-        let parameter = try req.parameters.next(String.self)
+    private func verifyPasswordResetRequest(req: Request) async throws -> View {
+        guard let parameter = req.parameters.get("parameter") else {
+            throw Abort(.badRequest, reason: "Invalid password reset parameter received.")
+        }
         
-        return try verifyKey(req, resetKey: parameter).flatMap(to:View.self) { _ in
-            let context = ["resetKey" : parameter]
-            return try req.view().render("users-password-change-form", context)
-        }
+        let _ = try await verifyKey(req, resetKey: parameter)
+        let context = ["resetKey" : parameter]
+        return try await req.view.render("users-password-change-form", context)
     }
     
-    private func verifyAndChangePassword(req: Request) throws -> EventLoopFuture<View> {
-        let pw1: String = try req.content.syncGet(at: "pw1")
-        let pw2: String = try req.content.syncGet(at: "pw2")
-        let resetKey: String = try req.content.syncGet(at: "resetKey")
+/*    private func verifyAndChangePassword(req: Request) async throws -> View {
+        struct PostVars: Content {
+            let pw1: String
+            let pw2: String
+            let resetKey: String
+        }
         
-        return try verifyKey(req, resetKey: resetKey).flatMap(to:View.self) { resetRequest in
-            guard pw1 == pw2 else {
-                throw Abort(.badRequest, reason: "Form submitted two passwords that don't match.")
-            }
-            
-            // TODO:  enforce minimum password requirement (configuration?)
-            // TODO:  verify no white space.  any other invalid characrters?
-            
-            return try self.changePassword(req, userId: resetRequest.person, newPassword: pw1).flatMap(to: View.self) {_ in
-                return try self.db.deleteExpiredAndCompleted(req, resetKey: resetKey).flatMap(to: View.self) { _ in
-                    return try req.view().render("users-password-change-success")
-                }
-            }
+        let vars = try req.content.decode(PostVars.self)
+        let pw1 = vars.pw1
+        let pw2 = vars.pw2
+        let resetKey = vars.resetKey
+        
+        guard pw1 == pw2 else {
+            throw Abort(.badRequest, reason: "Form submitted two passwords that don't match.")
         }
+        
+        let resetRequest: PasswordResetRequest = try await verifyKey(req, resetKey: resetKey)
+  
+        #warning("bms - password enforcement")
+        // TODO:  enforce minimum password requirement (configuration?)
+        // TODO:  verify no white space.  any other invalid characrters?
+                
+        async let changeTask = changePassword(req, userId: resetRequest.person, newPassword: pw1)
+        async let deleteTask = self.db.deleteExpiredAndCompleted(req, resetKey: resetKey)
+        let (_, _) = (try await changeTask, try await deleteTask)
+        return try await req.view.render("users-password-change-success")
     }
     
-    private func changePassword(_ req: Request, userId: Int, newPassword: String) throws -> EventLoopFuture<User> {
-        return User.query(on:req).filter(\.id == userId).all().flatMap(to: User.self) { userMatch in
-            var user = userMatch[0]
-            let passwordHash = try BCrypt.hash(newPassword)
-            user.passwordHash = passwordHash
-            return user.save(on: req)
-        }
+    private func changePassword(_ req: Request, userId: UUID, newPassword: String) async throws -> HTTPResponseStatus {
+        let userMatch = try await User.query(on:req.db).filter(\.$id == userId).all()
+        let user = userMatch[0]
+        let passwordHash = try Bcrypt.hash(newPassword)
+        user.passwordHash = passwordHash
+        try await user.save(on: req.db)
+        return HTTPResponseStatus.ok
     }
     
     
@@ -324,12 +319,12 @@ extension SecurityController {
         }
     }
     
-    
+    */
     
     // MARK: Private helper methods
-    
+ 
     private func getResetEmailBody(key: String) -> (String, String) {
-        let resetLink = "\(self.cache.configKeys.systemRootPublicURL)/security/password-reset-process/\(key)"
+        let resetLink = "\(settings.systemRootPublicURL)/security/password-reset-process/\(key)"
         
         let html = """
         <p>We have received a password reset request for your account.  If you did not make this request, you can delete this email, and your password will remain unchanged.</p>
@@ -340,6 +335,6 @@ extension SecurityController {
         
         return (html, txt)
     }
-    
+
 }
-*/
+

@@ -12,10 +12,10 @@ import Vapor
 class SessionController {
     
 
-    static func getUserId(_ req: Request) throws -> UUID {
+    static func getUserId(_ req: Request) throws -> UUID? {
         guard let userId = req.session.data["userId"],
               let uuid = UUID(uuidString: userId ) else {
-            throw Abort (.badRequest, reason: "Invalid user id requested")
+            return nil
         }
         return uuid
     }

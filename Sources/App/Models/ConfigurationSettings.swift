@@ -23,8 +23,8 @@ class ConfigurationSettings: Decodable {
         var username: String
         var password: String
         var timeout: UInt
-        var techMailTo: String
-        var adminMailTo: String
+        var friendlyName: String
+        var fromEmail: String
     }
     
     struct Message: Codable {
@@ -46,7 +46,9 @@ class ConfigurationSettings: Decodable {
     let listenOnPort: Int
     let smtp: ConfigurationSettings.Smtp
     let emailMessages: [String: ConfigurationSettings.Message]
-    
+    let resetKeyExpDuration: Int
+    let systemRootPublicURL: String
+    let maxFileSize: String
     
     init() {
         let path = DirectoryConfiguration.detect().resourcesDirectory
@@ -58,6 +60,9 @@ class ConfigurationSettings: Decodable {
             self.listenOnPort = decoder.listenOnPort
             self.smtp = decoder.smtp
             self.emailMessages = decoder.emailMessages
+            self.resetKeyExpDuration = decoder.resetKeyExpDuration
+            self.systemRootPublicURL = decoder.systemRootPublicURL
+            self.maxFileSize = decoder.maxFileSize
             
         }
         catch {

@@ -53,12 +53,16 @@ class ContentController: RouteCollection {
     }
     
     let fileManager = FileManager.default
+    let settings: ConfigurationSettings
     
     static let urlRootString = "list"
     static var urlRoot:String {"/\(urlRootString)"}
     static var urlRootPath:PathComponent {PathComponent(stringLiteral: urlRootString)}
     
         
+    init(_ settings: ConfigurationSettings) {
+        self.settings = settings
+    }
     
     func boot(routes: RoutesBuilder) throws {
         routes.get(Self.urlRootPath, use: renderHome)
@@ -67,10 +71,11 @@ class ContentController: RouteCollection {
         routes.get("folderUp", use: folderUp)
         routes.get("folder", ":newFolder", use: goIntoFolder)
         routes.get("folderdir", ":newFolder", use:goToFolder)
-        routes.post("upload", use: upload)
         routes.get("top", use: folderTop)
         routes.post("createFolder", use: createFolder)
         routes.post("delete", use: delete)
+        
+        routes.on(.POST, "upload", body: .collect(maxSize: ByteCount(stringLiteral: settings.maxFileSize)), use: upload)
     }
     
     
@@ -84,7 +89,7 @@ class ContentController: RouteCollection {
                 
                 let access = SessionController.getAccessLevelToCurrentRepo(req)
                 guard access == .read || access == .full else {
-                    let uid = (try? SessionController.getUserId(req).uuidString) ?? "nil"
+                    let uid = (try? SessionController.getUserId(req)?.uuidString) ?? "nil"
                     throw Abort(.unauthorized, reason: "User does not have access to this repository.  uid = \(uid)   repoid = \(currentRepo)")
                 }
                 
@@ -199,21 +204,20 @@ class ContentController: RouteCollection {
         
         return try currentRepoContext(req).flatMapThrowing { repoListing in
 
-            guard let repo = repoListing else{
+            guard repoListing != nil else{
                 throw Abort(.internalServerError, reason: "Could not determine a current repository context.")
             }
             
-            let path = self.findDirectory(on: req, for: repo)
+            //let path = self.findDirectory(on: req, for: repo)
             let pointers = try req.content.decode(FPPost.self).pointers
             
-            print (req.content)
+            //print (req.content)
             
-//
-//            for pointer in pointers {
-//                if let url = URL(string: pointer) {
-//                    try self.fileManager.removeItem(at: url)
-//                }
-//            }
+            for pointer in pointers {
+                if let url = URL(string: pointer) {
+                    try self.fileManager.removeItem(at: url)
+                }
+            }
             return req.redirect(to: Self.urlRoot)
         }
     }
@@ -252,7 +256,11 @@ class ContentController: RouteCollection {
     // MARK:  Futures that help build the results for the public methods.
     
     private func repoContext(_ req: Request) throws -> EventLoopFuture<[RepoListing]>{
-        return try UserRepo.query(on: req.db).filter(\.$userId == SessionController.getUserId(req)).join(Repo.self, on: \UserRepo.$repoId == \Repo.$id).all().flatMapThrowing { userRepos in
+        guard let userId = try SessionController.getUserId(req) else {
+            throw Abort(.badRequest, reason: "Attempt to retrieve repo contact without a user id in the session.")
+        }
+        
+        return UserRepo.query(on: req.db).filter(\.$userId == userId).join(Repo.self, on: \UserRepo.$repoId == \Repo.$id).all().flatMapThrowing { userRepos in
             guard userRepos.count >= 1 else {
                 throw Abort(.notFound, reason: "User does not have access to any file repositories.")
             }

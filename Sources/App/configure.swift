@@ -9,8 +9,7 @@ public func configure(_ app: Application) throws {
     // app.middleware.use(FileMiddleware(publicDirectory: app.directory.publicDirectory))
 
     // register routes
-    try routes(app)
-    
+        
     let settings = ConfigurationSettings()
     
     app.databases.use(.mysql(
@@ -23,8 +22,12 @@ public func configure(_ app: Application) throws {
     
     app.http.server.configuration.port = settings.listenOnPort
     
+    // listen on local network
+    app.http.server.configuration.address = BindAddress.hostname("192.168.1.4", port: settings.listenOnPort)
+    
     app.views.use(.leaf)
     
+    try routes(app, settings)
     
     /// config max upload file size
     app.routes.defaultMaxBodySize = "80mb"
