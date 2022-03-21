@@ -3,15 +3,24 @@ body {
     font-size: 16pt;  
 }
 
-#header {
-    background-color: blue;
-    color: #fff;
-    height: 50px;
-    width: 100%;
+#logo {
+    
+}
+
+#logo img {
+    margin-left: auto;
+    margin-right: auto;
+    display: block;
+    clear: both;
+    max-height: 100px;
 }
 
 #header ul {
     list-style-type: none;
+    background-color: blue;
+    color: #fff;
+    height: 50px;
+    width: 100%;
 }
 
 #header ul li {
@@ -22,6 +31,15 @@ body {
 
 select {
     font-size: 16pt;
+}
+
+#sel-repo {
+    width: 580px;
+}
+
+a { 
+    color: #FFF; 
+    text-decoration: none;
 }
 
 #content {
@@ -98,7 +116,7 @@ th, td {
     text-align: center;
 }
 
-.ui-button {
+.ui-button, #inpFileSelector::file-selector-button{
     background-color: blue;
     color: white;
     font-weight: bold;

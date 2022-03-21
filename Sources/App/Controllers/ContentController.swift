@@ -103,6 +103,7 @@ class ContentController: RouteCollection {
             
                         let showSelector = repoContext.count > 1
                         let pathAtTop = try self.folderHeirarchy(req)
+                        print(host)
                         let context = HomeContext(title: "Secure File Repository:  \(currentRepo.repoName)", fileProps: contents, availableRepos: repoContext, showRepoSelector: showSelector, showAdmin: SessionController.getIsAdmin(req), pathAtTop: pathAtTop, hostInfo: host)
                         return req.view.render("index", context)
                     }

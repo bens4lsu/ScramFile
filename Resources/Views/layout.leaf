@@ -12,11 +12,10 @@
     #import("javascript")
     
     <div id="header">
-        <div id="logo"></div>
+        <div id="logo"><img src="/images/logo-kidderschultz.png"></div>
     
         <div id="main-menu">
             <ul>
-                <li><a href="">Files</a></li>
                 <li>
                     <select id="sel-repo">
                         #for(repo in availableRepos):
@@ -24,9 +23,13 @@
                         #endfor
                     </select>
                 </li>
+                 <li><a href="/list">Files</a></li>
+                
+                <!--
                 <li>Shared With Me</li>
                 <li>Secrets</li>
-                <li>Admin</li>
+                -->
+                <li><a href="/admin">Admin</a></li>
                 <li>Log Out</li>
             </ul>
         </div>

@@ -10,7 +10,18 @@ import Vapor
 import Fluent
 import FluentMySQLDriver
 
-//class AdminController: RouteCollection {
+class AdminController: RouteCollection {
+    
+    func boot(routes: RoutesBuilder) throws {
+        routes.get("admin", use: renderAdmin)
+        routes.post("admin", "user", ":userId", use: getSingleUser)
+    }
+    
+    func renderAdmin
+    
+    
+    
+}
 //
 //    struct UserRepoContext: Codable, Content {
 //        var repoId: UUID
@@ -23,10 +34,7 @@ import FluentMySQLDriver
 //    }
 //
 //
-//    func boot(routes: RoutesBuilder) throws {
-//        routes.get("admin", "users", use: getUserList)
-//        routes.post("admin", "user", ":userId", use: getSingleUser)
-//    }
+
 //
 //    func getUserList(_ req: Request) -> EventLoopFuture<View> {
 //        struct AdminUserContext: Encodable {

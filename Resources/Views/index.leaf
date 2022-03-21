@@ -1,13 +1,17 @@
 #extend("layout"):
     #export("javascript"):
     <script>
+    
+    
+        var colors = #unsafeHTML(hostInfo.colors);
+    
         $(document).ready(function(){
 
-/*          $("#path").css("border-color", colors.backgroundColor);
+            $("#path").css("border-color", colors.backgroundColor);
             $("h1").css("color", colors.backgroundColor);
             $("#options").css("border-color", colors.backgroundColor);
             $("#content a").css("color", colors.tableLinkColor);
-*/    
+   
         
             $("a.a-download").on("click", function(e){
                 e.preventDefault();
@@ -113,6 +117,12 @@
                         click: function() {
                             $( this ).dialog( "close" );
                         }
+                    }, {
+                        text: "Submit",
+                        click: function() {
+                            $('#frmUploadFile').submit();
+                            $( this ).dialog( "close" );
+                        }
                     }
                 ]
             });
@@ -191,9 +201,16 @@
             <tbody>
                 #for(file in fileProps):
                     <tr><td><input type="checkbox"></td>
-                        <td>#if(file.isDirectory):<img src="images/icon-folder.png" alt="[]" style="height:18px; margin-right:0.5em;">#endif
-                            <a href="#(file.link)" class="a-download">#(file.name)</a>
-                        </td>
+                        <td><a href="#(file.link)" class="a-download">
+                                #if(file.name == ".."):
+                                    <img src="images/icon-folder-up.png" alt="[]" style="height:18px; margin-right:0.5em;">
+                                #elseif(file.isDirectory): <img src="images/icon-folder.png" alt="[]" style="height:18px; margin-right:0.5em;">
+                                #endif 
+                                
+                                #if(file.name != ".."):
+                                    #(file.name)
+                                #endif
+                        </a></td>
                         <td>#date(file.modified, "MM/dd/yyyy hh:mm")</td>
                         <td>#(file.size)</td>
                     </tr>
@@ -203,20 +220,23 @@
         
         <div id="options">
             <p><a href="" onclick="createFolder()">Create Folder</a></p>
-            <p><a href="">Upload File</a></p>
+            <p><a href="" onclick="uploadFile()">Upload File</a></p>
             <p><a href="" onclick="deleteChecked()" id="pDeleteChecked" style="visibility: hidden;">Delete Checked</a></p>
             <o><a href="" onclick="shareChecked()" id="pShareChecked" style="visibility: hidden;">Share Checked</a></p>
         </div>
     
     <div id="dlgUpload">
-        <form action="/upload" method="post" enctype="multipart/form-data">
-            <input type="file" name="file"><br><br>
-            <input type="submit" value="Submit">
+        <form action="/upload" method="post" enctype="multipart/form-data" id="frmUploadFile">
+            <input type="file" name="file" id="inpFileSelector"><br><br>
         </form>
     </div>
         
     <div id="dlgConfirmDelete">
         Delete checked files?<br>There is no option to undo.
+    </div>
+    
+    <div id="dlgNewFolder">
+        Folder Name: <input id="inpNewFolderName">
     </div>
         
     #endexport    

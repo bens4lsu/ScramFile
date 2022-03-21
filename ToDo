@@ -1,2 +1,4 @@
+ContentController
 
-2.  /subfolder in title on subfolders
+1.  Make sure every request validates access rights.
+2.  Repo selector should be hidden for users with rights to only one repo.
