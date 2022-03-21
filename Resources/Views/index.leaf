@@ -2,6 +2,12 @@
     #export("javascript"):
     <script>
         $(document).ready(function(){
+
+/*          $("#path").css("border-color", colors.backgroundColor);
+            $("h1").css("color", colors.backgroundColor);
+            $("#options").css("border-color", colors.backgroundColor);
+            $("#content a").css("color", colors.tableLinkColor);
+*/    
         
             $("a.a-download").on("click", function(e){
                 e.preventDefault();
@@ -14,44 +20,151 @@
                 }
                 return false;
             });
+
         
-                
-            $("\#sel-repo").change(function() {
+            $("#sel-repo").change(function() {
                 var repo = $("\#sel-repo option:checked").val(); 
                 var link = "changeRepo/" + repo;
                 ajaxReload(link);
             });
+    
+            $("input[type='checkbox']").change(function() {
+                var visibility = 'hidden';
+                var countChecked = 0;
+                $("input[type='checkbox']").each(function() {
+                    if ($(this).is(":checked")) {
+                        visibility = "visible";
+                        countChecked++;
+                    }
+                });
+                $("#pDeleteChecked").css("visibility", visibility);
+                if (countChecked == 1) {
+                    $("#pShareChecked").css("visibility", 'visible');
+                }
+                else {
+                    $("#pShareChecked").css("visibility", 'hidden');
+                }
+            });
+    
+            $("#dlgNewFolder").dialog({
+                autoOpen: false,
+                width: 400,
+                modal: true,
+                buttons: [
+                    {
+                        text: "Ok",
+                        click: function() {
+                            $('html, body').css("cursor", "wait");
+                            var newFolderName = $('#inpNewFolderName').val();
+                            if (newFolderName.length >= 1){
+                                $.post("createFolder", {"newFolder" : newFolderName}, function(){
+                                    location.reload();
+                                });
+                            }
+                        }
+                    },
+                    {
+                        text: "Cancel",
+                        click: function() {
+                            $( this ).dialog( "close" );
+                        }
+                    }
+                ]
+            });
+    
+            $("#dlgConfirmDelete").dialog({
+                autoOpen: false,
+                width: 400,
+                modal: true,
+                buttons: [
+                    {
+                        text: "Ok",
+                        click: function() {
+                            var files = [];
+                            $("input:checkbox:checked").each(function() {
+                                var string = $(this).parent().siblings().find(".a-download").attr("href");
+                                var n = string.indexOf("/") + 1;
+                                string = string.substr(n);  
+                                files.push(string);
+                            });
+    
+                            $('html, body').css("cursor", "wait");                        
+                            $.post("delete", {"pointers" : files}, function(){
+                                location.reload();
+                            });
+                        }
+                    },
+                    {
+                        text: "Cancel",
+                        click: function() {
+                            $( this ).dialog( "close" );
+                        }
+                    }
+                ]
+            });
+    
+            $("#dlgUpload").dialog({
+                autoOpen: false,
+                width: 400,
+                modal: true,
+                buttons: [
+                    {
+                        text: "Cancel",
+                        click: function() {
+                            $( this ).dialog( "close" );
+                        }
+                    }
+                ]
+            });
+    
+            $("#dlgShare").dialog({
+                autoOpen: false,
+                width: 400,
+                modal: true,
+                buttons: [
+                    {
+                        text: "Cancel",
+                        click: function() {
+                            $( this ).dialog( "close" );
+                        }
+                    }
+                ],
+                open: function() {
+                    var dlPath = $("input:checkbox:checked").parent().siblings(".tdLink").children("a").first().attr("href");
+                    var filepart = dlPath.substr(9);
+                    var serverpart = "https://" + window.location.host
+                    $("#dlgShare > input").val(serverpart + "/sharedFile/" + filepart);
+            
+                }
+            });
         });
-        
+
         function ajaxReload(link) {
+            $('html, body').css("cursor", "wait");
             $.get(link).done(function(){
                 location.reload();
             });
         }
 
         function deleteChecked() {
-            files = $("input:checkbox:checked").map(function() {
-                return $(this)
-                    .parent()
-                    .siblings()
-                    .find(".a-download")
-                    .attr("href")
-                    .substr(9);
-            });
-            
-            console.log(files)
-            
-            $.post("delete", {"pointers" : files}, function(){
-                location.reload();
-            });
+            event.preventDefault();
+            $("#dlgConfirmDelete").dialog("open");
         }
-        
-        function newFolder() {
-            $.post("createFolder", {"newFolder" : "new folder name"}, function(){
-                location.reload();
-            });
+
+        function createFolder() {
+            event.preventDefault();
+            $("#dlgNewFolder").dialog("open");
         }
-        
+
+        function uploadFile() {
+            event.preventDefault();
+            $("#dlgUpload").dialog("open");
+        }
+
+        function shareChecked() {
+            event.preventDefault();
+            $("#dlgShare").dialog("open");
+        }
           
     </script>
     #endexport
@@ -71,7 +184,6 @@
         <table>
             <thead><tr>
                 <th class="col1">&nbsp;</th>
-                <th class="col2">&nbsp;</th>
                 <th class="col3">Name</th>
                 <th class="col4">Modified</th>
                 <th class="col5">Size</th>
@@ -79,8 +191,9 @@
             <tbody>
                 #for(file in fileProps):
                     <tr><td><input type="checkbox"></td>
-                        <td>#(file.isDirectory)</td>
-                        <td><a href="#(file.link)" class="a-download">#(file.name)</a></td>
+                        <td>#if(file.isDirectory):<img src="images/icon-folder.png" alt="[]" style="height:18px; margin-right:0.5em;">#endif
+                            <a href="#(file.link)" class="a-download">#(file.name)</a>
+                        </td>
                         <td>#date(file.modified, "MM/dd/yyyy hh:mm")</td>
                         <td>#(file.size)</td>
                     </tr>
@@ -91,15 +204,20 @@
         <div id="options">
             <p><a href="" onclick="createFolder()">Create Folder</a></p>
             <p><a href="">Upload File</a></p>
-            <p><a href="" onclick="deleteChecked()">Delete Checked</a></p>
+            <p><a href="" onclick="deleteChecked()" id="pDeleteChecked" style="visibility: hidden;">Delete Checked</a></p>
+            <o><a href="" onclick="shareChecked()" id="pShareChecked" style="visibility: hidden;">Share Checked</a></p>
         </div>
     
-    <form action="/upload" method="post" enctype="multipart/form-data">
-        <input type="file" name="file"><br><br>
-        <input type="submit" value="Submit">
-    </form>
-    
-    <div id="dlg
-    
+    <div id="dlgUpload">
+        <form action="/upload" method="post" enctype="multipart/form-data">
+            <input type="file" name="file"><br><br>
+            <input type="submit" value="Submit">
+        </form>
+    </div>
+        
+    <div id="dlgConfirmDelete">
+        Delete checked files?<br>There is no option to undo.
+    </div>
+        
     #endexport    
 #endextend    

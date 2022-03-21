@@ -37,6 +37,7 @@ h1 {
 #path {
     border: 2px solid blue;
     margin-bottom:30px;
+    border-radius: 8px;
 }
 
 #path span {
@@ -65,3 +66,44 @@ th, td {
     padding-top: 10px;
 }
 
+#options {
+    position: fixed;
+    right: 10px;
+    width: 15%;
+    border: 2px solid blue;
+    padding: 8px;
+    top: 260px;
+    border-radius: 8px;
+}
+
+.ui-dialog-titlebar {
+    background-color: blue;
+    color: white;
+    
+}
+
+.ui-dialog {
+    background-color: white;
+    border-bottom: 2px solid blue;
+    border-left: 2px solid blue;
+    border-right: 2px solid blue;
+    border-bottom-left-radius: 8px;
+    border-bottom-right-radius: 8px;
+}
+
+.ui-dialog-titlebar-close {display: none }
+
+.ui-dialog-content {
+    padding: 11px;
+    text-align: center;
+}
+
+.ui-button {
+    background-color: blue;
+    color: white;
+    font-weight: bold;
+    min-width: 60px;
+    min-height: 30px;
+    margin-right: 8px;
+    margin-bottom: 4px;
+}

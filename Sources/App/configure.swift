@@ -23,7 +23,7 @@ public func configure(_ app: Application) throws {
     app.http.server.configuration.port = settings.listenOnPort
     
     // listen on local network
-    app.http.server.configuration.address = BindAddress.hostname("192.168.1.4", port: settings.listenOnPort)
+    //app.http.server.configuration.address = BindAddress.hostname("192.168.1.4", port: settings.listenOnPort)
     
     app.views.use(.leaf)
     

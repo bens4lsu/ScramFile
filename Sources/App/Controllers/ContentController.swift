@@ -37,6 +37,9 @@ class ContentController: RouteCollection {
         var fileName: String
         var isDirectory: Bool = true
         
+        var filepath: String { self.directory + "/" + self.fileName }
+        var url: URL? { return URL(fileURLWithPath: filepath) }
+        
         func encoded() throws -> String {
             let encoder  = JSONEncoder()
             let data = try encoder.encode(self)
@@ -56,8 +59,8 @@ class ContentController: RouteCollection {
     let settings: ConfigurationSettings
     
     static let urlRootString = "list"
-    static var urlRoot:String {"/\(urlRootString)"}
-    static var urlRootPath:PathComponent {PathComponent(stringLiteral: urlRootString)}
+    static var urlRoot: String {"/\(urlRootString)"}
+    static var urlRootPath: PathComponent {PathComponent(stringLiteral: urlRootString)}
     
         
     init(_ settings: ConfigurationSettings) {
@@ -208,15 +211,13 @@ class ContentController: RouteCollection {
                 throw Abort(.internalServerError, reason: "Could not determine a current repository context.")
             }
             
-            //let path = self.findDirectory(on: req, for: repo)
             let pointers = try req.content.decode(FPPost.self).pointers
-            
-            //print (req.content)
-            
             for pointer in pointers {
-                if let url = URL(string: pointer) {
-                    try self.fileManager.removeItem(at: url)
+                let decodedPointer = try self.decodeFilePointer(pointer)
+                guard let fp = decodedPointer, let url = fp.url else {
+                    throw Abort(.badRequest, reason: "Delete requested for a key that is not a valid file pointer.")
                 }
+                try self.fileManager.removeItem(at: url)
             }
             return req.redirect(to: Self.urlRoot)
         }
