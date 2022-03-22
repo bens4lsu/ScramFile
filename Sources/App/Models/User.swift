@@ -37,5 +37,17 @@ final class User: Model, Content, Codable {
     var isActive: Bool
     
     init() { }
+    
+    struct UserContext: Content, Encodable {
+        var id: UUID
+        var userName: String
+    }
+    
+    func userContext() throws -> User.UserContext {
+        guard let id = self.id else {
+            throw Abort(.internalServerError, reason: "Attempt to retrieve contet for user with no id.")
+        }
+        return UserContext(id: id, userName: self.userName)
+    }
 
 }

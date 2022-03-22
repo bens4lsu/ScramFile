@@ -18,4 +18,13 @@ class HostController {
             return host
         }
     }
+    
+    func getHostContext(_ req: Request, hostId: UUID) async throws -> Host {
+        let optionalHost = try await Host.find(hostId, on: req.db)
+        guard let host = optionalHost else {
+            throw Abort (.internalServerError, reason: "Current repo is associated with an invalid host.")
+        }
+        return host
+    }
+    
 }

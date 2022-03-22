@@ -1,0 +1,31 @@
+#extend("layout"):
+    #export("javascript"):
+    <script>
+    
+    function detailsFor(id) {
+        $.post("adminUDetails", {"id" : id}, function(){
+            
+        });
+    }
+
+        
+    </script>
+    #endexport
+    
+
+    #export("content"):
+    
+    <div id="divAdminUserlist">
+        <ul> #for(user in users):
+            <li><a href="" onclick="detailsFor('#(user.id)');">#(user.userName)</a></li>
+            #endfor 
+        </ul>
+    </div>
+    
+    <div id="divAdminUserDetails">
+    
+    </div>
+    
+        
+    #endexport    
+#endextend    

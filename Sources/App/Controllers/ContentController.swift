@@ -13,7 +13,7 @@ import FluentMySQLDriver
 
 class ContentController: RouteCollection {
     
-    struct HomeContext: Encodable {
+    private struct HomeContext: Encodable {
         var title: String
         var fileProps: [FileProp]
         var availableRepos: [RepoListing]
@@ -23,7 +23,7 @@ class ContentController: RouteCollection {
         var hostInfo: Host
     }
 
-    struct FileProp: Encodable {
+    private struct FileProp: Encodable {
         var name: String
         var modified: Date?
         var isDirectory: Bool
@@ -32,7 +32,7 @@ class ContentController: RouteCollection {
         var allowDeletes: Bool
     }
     
-    struct FilePointer: Codable {
+    private struct FilePointer: Codable {
         var directory: String
         var fileName: String
         var isDirectory: Bool = true
@@ -47,7 +47,7 @@ class ContentController: RouteCollection {
         }
     }
     
-    struct RepoListing: Encodable {
+    struct RepoListing: Content {
         var repoId: UUID
         var repoName: String
         var isSelected: Bool
@@ -103,7 +103,6 @@ class ContentController: RouteCollection {
             
                         let showSelector = repoContext.count > 1
                         let pathAtTop = try self.folderHeirarchy(req)
-                        print(host)
                         let context = HomeContext(title: "Secure File Repository:  \(currentRepo.repoName)", fileProps: contents, availableRepos: repoContext, showRepoSelector: showSelector, showAdmin: SessionController.getIsAdmin(req), pathAtTop: pathAtTop, hostInfo: host)
                         return req.view.render("index", context)
                     }
@@ -189,7 +188,6 @@ class ContentController: RouteCollection {
             guard let repoListing = repoListing else {
                 throw Abort(.badRequest, reason: "Invalid repo specified for new folder.")
             }
-            print(repoListing)
             let dir = self.findDirectory(on: req, for: repoListing) + "/" + newFolder
             try self.fileManager.createDirectory(atPath: dir, withIntermediateDirectories: false, attributes: nil)
             return req.redirect(to: Self.urlRoot)
@@ -332,7 +330,7 @@ class ContentController: RouteCollection {
         }
     }
     
-    func folderHeirarchy(_ req: Request) throws ->  [FileProp] {
+    private func folderHeirarchy(_ req: Request) throws ->  [FileProp] {
         guard let subfolderString = SessionController.getCurrentSubfolder(req) else {
             return []
         }
@@ -346,7 +344,6 @@ class ContentController: RouteCollection {
                 }
                 path1 += folder[j]
             }
-            print (path1);
             let pointer = try "/folderdir/" + FilePointer(directory: path1, fileName: folder[i], isDirectory: true).encoded()
             let fp = FileProp(name: folder[i], modified: nil, isDirectory: true, size: nil, link: pointer, allowDeletes: false)
             properties.append(fp)

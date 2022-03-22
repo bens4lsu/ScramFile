@@ -125,3 +125,26 @@ th, td {
     margin-right: 8px;
     margin-bottom: 4px;
 }
+
+
+#divAdminUserlist {
+    display: inline-block;
+    border: 1px solid blue;
+    width: 18%;
+    margin-right: 8px;
+}
+
+#divAdminUserlist li {
+    list-style-type:none;
+}
+
+#divAdminUserlist li a {
+    color: #333;
+}
+
+
+#divAdminUserDetails {
+    display: inline-block;
+    border: 1px solid blue;
+    width: 80%;
+}

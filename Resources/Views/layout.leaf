@@ -16,13 +16,13 @@
     
         <div id="main-menu">
             <ul>
-                <li>
+                #if(! hideRepoSelector):<li>
                     <select id="sel-repo">
                         #for(repo in availableRepos):
                             <option value="#(repo.repoId)" #if(repo.isSelected): selected #endif>#(repo.repoName)</option>
                         #endfor
                     </select>
-                </li>
+                </li>#endif
                  <li><a href="/list">Files</a></li>
                 
                 <!--

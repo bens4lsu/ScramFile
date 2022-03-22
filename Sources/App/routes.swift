@@ -5,7 +5,7 @@ func routes(_ app: Application, _ settings: ConfigurationSettings) throws {
     
     try app.register(collection: ContentController(settings))
     try app.register(collection: SecurityController(settings))
-//    try app.register(collection: AdminController())
+    try app.register(collection: AdminController())
 
     
     

@@ -12,12 +12,79 @@ import FluentMySQLDriver
 
 class AdminController: RouteCollection {
     
-    func boot(routes: RoutesBuilder) throws {
-        routes.get("admin", use: renderAdmin)
-        routes.post("admin", "user", ":userId", use: getSingleUser)
+    
+    private struct AdminUserContext: Content {
+        var host: Host
+        var users: [User.UserContext]
+        var hideRepoSelector:Bool = true
+        var availableRepos: [ContentController.RepoListing] = []
     }
     
-    func renderAdmin
+    struct AdminRepoTreeBranch: Content, Comparable {
+        var hostId: UUID
+        var hostName: String
+        var repoId: UUID
+        var repoName: String
+        var accessLevel: AccessLevel
+        var newTree: Bool
+        
+        static func < (lhs: AdminController.AdminRepoTreeBranch, rhs: AdminController.AdminRepoTreeBranch) -> Bool {
+            if lhs.hostName == rhs.hostName {
+                return lhs.repoName < rhs.repoName
+            }
+            return lhs.hostName < rhs.hostName
+        }
+        
+    }
+    
+    private struct AdminSingleUserContext: Content {
+        var user: User.UserContext
+        var accessList: [AdminRepoTreeBranch]
+    }
+    
+
+    func boot(routes: RoutesBuilder) throws {
+        routes.get("admin", use: renderUserList)
+        routes.post("adminDetails", use: getSingleUser)
+    }
+    
+    func renderUserList(_ req: Request) async throws -> View {
+        async let users = User.query(on: req.db).all().map { try $0.userContext() }
+        
+        guard let userId = try? SessionController.getUserId(req) else {
+            throw Abort (.internalServerError, reason: "Can not use Admin when there is no user in session.")
+        }
+        
+        guard let currentUser = try? await User.find(userId, on: req.db) else {
+            throw Abort (.internalServerError, reason: "No user found during attempt to load admin page.")
+        }
+        
+        guard let host = try? await Host.find(currentUser.hostId, on:req.db) else {
+            throw Abort (.internalServerError, reason: "User associated with an invalid Host.")
+        }
+        
+        let context = AdminUserContext(host: host, users: try await users)
+        return try await req.view.render("admin-user", context)
+    }
+    
+    
+    func getSingleUser(_ req: Request) async throws -> Response {
+        struct UserPost: Codable {
+            var id: String?
+        }
+
+        guard let input = try? req.content.decode(UserPost.self),
+              let idString = input.id,
+              let userId = UUID(uuidString: idString),
+              let user = try await User.find(userId, on: req.db).get()?.userContext()
+        else {
+            throw Abort(.badRequest, reason: "Requested admin access to a user that does not exist.")
+        }
+        
+        let accessTree = try await MySQLDirect().getRepoListForUser(req, userId: userId)
+        let context = AdminSingleUserContext(user: user, accessList: accessTree)
+        return try await context.encodeResponse(for: req)
+    }
     
     
     
