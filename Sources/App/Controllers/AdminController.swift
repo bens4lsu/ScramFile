@@ -67,13 +67,7 @@ class AdminController: RouteCollection {
             throw Abort (.internalServerError, reason: "Can not use Admin when there is no user in session.")
         }
         
-        guard let currentUser = try? await User.find(userId, on: req.db) else {
-            throw Abort (.internalServerError, reason: "No user found during attempt to load admin page.")
-        }
-        
-        guard let host = try? await Host.find(currentUser.hostId, on:req.db) else {
-            throw Abort (.internalServerError, reason: "User associated with an invalid Host.")
-        }
+        let host = try await HostController().getHostContext(req)
         
         let context = AdminUserContext(host: host, users: try await users)
         return try await req.view.render("admin-user", context)

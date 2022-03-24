@@ -2,7 +2,7 @@ import Fluent
 import Vapor
 
 func routes(_ app: Application, _ settings: ConfigurationSettings) throws {
-    
+        
     try app.register(collection: ContentController(settings))
     try app.register(collection: SecurityController(settings))
     try app.register(collection: AdminController())

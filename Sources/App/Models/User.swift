@@ -17,9 +17,6 @@ final class User: Model, Content, Codable {
 
     @Field(key: "userName")
     var userName: String
-
-    @Field(key: "hostId")
-    var hostId: UUID
     
     @Field(key: "userEncryptionKey")
     var userEncryptionKey: String

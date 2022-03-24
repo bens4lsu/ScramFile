@@ -55,8 +55,9 @@ class ContentController: RouteCollection {
         var hostId: UUID
     }
     
-    let fileManager = FileManager.default
-    let settings: ConfigurationSettings
+    private let fileManager = FileManager.default
+    private let settings: ConfigurationSettings
+    private let hostController = HostController()
     
     static let urlRootString = "list"
     static var urlRoot: String {"/\(urlRootString)"}
@@ -96,12 +97,12 @@ class ContentController: RouteCollection {
             throw Abort(.unauthorized, reason: "User does not have access to this repository.  uid = \(uid)   repoid = \(currentRepo)")
         }
         
-        let host = try await HostController().getHostContext(req, hostId: currentRepo.hostId)
         let directory = try await self.findDirectory(on: req, for: currentRepo)
         let contents = try self.directoryContents(on: req, for: directory)
 
         let showSelector = repoContext.count > 1
         let pathAtTop = try self.folderHeirarchy(req)
+        let host = try await hostController.getHostContext(req)
         let context = HomeContext(title: "Secure File Repository:  \(currentRepo.repoName)", fileProps: contents, availableRepos: repoContext, showRepoSelector: showSelector, showAdmin: SessionController.getIsAdmin(req), pathAtTop: pathAtTop, hostInfo: host)
         return try await req.view.render("index", context)
     }
@@ -287,7 +288,7 @@ class ContentController: RouteCollection {
     
     
     private func findDirectory(on req: Request, for repo: RepoListing) async throws -> String {
-        let host = try await HostController().getHostContext(req, hostId: repo.hostId)
+        let host = try await hostController.getHostContext(req)
         let directory = req.application.directory.resourcesDirectory + "Repos/" + host.hostFolder + "/" + repo.repoFolder
         guard let sub = SessionController.getCurrentSubfolder(req) else {
             return directory

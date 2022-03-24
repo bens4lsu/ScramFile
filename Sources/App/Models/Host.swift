@@ -9,12 +9,6 @@ import Vapor
 import Fluent
 import FluentMySQLDriver
 
-struct HostColors: Decodable {
-    var backgroundColor: String
-    var activeLinkColor: String
-    var linkColor: String
-}
-
 
 final class Host:  Model, Content, Codable {
             
@@ -40,7 +34,5 @@ final class Host:  Model, Content, Codable {
     
     init() { }
     
-    var hostColors: HostColors {
-        return colors.toObject() ?? HostColors(backgroundColor: "000000", activeLinkColor: "ffffff", linkColor: "aaaaaa")
-    }
+
 }
