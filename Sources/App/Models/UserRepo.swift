@@ -26,6 +26,19 @@ final class UserRepo: Model, Content, Codable {
     var accessLevel: AccessLevel
     
     init() { }
+    
+    init(id: UUID?, userId: UUID, repoId: UUID, accessLevel: AccessLevel) {
+        self.id = id
+        self.userId = userId
+        self.repoId = repoId
+        self.accessLevel = accessLevel
+        
+        if id != nil {
+            self.$id.exists = true  // 2021.11.19 - need this to fool Fluent into understanding
+                                    //              that the id property is set.  It was trying
+                                    //              to insert where I needed an update.
+        }
+    }
 
 }
 

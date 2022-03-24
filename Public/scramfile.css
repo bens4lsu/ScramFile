@@ -148,3 +148,25 @@ th, td {
     border: 1px solid blue;
     width: 80%;
 }
+
+#divAdminUserAccess ul li {
+    list-style-type:none;
+    font-weight: bold;
+    line-height: 2;
+}
+
+#divAdminUserAccess ul li ul li {
+    list-style-type: none;
+    padding-bottom: 12px;
+    font-weight: normal;
+}
+.sel-access {
+    margin-left:2em;
+    width:110px;
+}
+
+.span-saved {
+    color: green;
+    font-weight: bold;
+    margin-left:2em;
+}

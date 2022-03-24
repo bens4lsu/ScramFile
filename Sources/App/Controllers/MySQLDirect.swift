@@ -45,7 +45,7 @@ class MySQLDirect {
                 , IFNULL(tur.accessLevel, 'none') AS accessLevel
             FROM tblHosts th
                 JOIN tblRepos tr  ON th.id = tr.hostId
-                LEFT OUTER JOIN tblUserRepos tur ON tr.id  = tur.repoId AND tur.userId = '\(userId)'
+                LEFT OUTER JOIN tblUserRepos tur ON tr.id  = tur.repoId AND tur.userId = UUID_TO_BIN('\(userId)')
         """
         
         return try await getResultsRows(req, query: sql, decodeUsing: AdminController.AdminRepoTreeBranch.self)

@@ -57,6 +57,7 @@ class AdminController: RouteCollection {
     func boot(routes: RoutesBuilder) throws {
         routes.get("admin", use: renderUserList)
         routes.post("adminUDetails", use: getSingleUser)
+        routes.post("adminChangeAccess", use: changeAccess)
     }
     
     func renderUserList(_ req: Request) async throws -> View {
@@ -91,7 +92,45 @@ class AdminController: RouteCollection {
         else {
             throw Abort(.badRequest, reason: "Requested admin access to a user that does not exist.")
         }
+        let list = try await accessListForUser(req, userId: userId)
+        let context = AdminSingleUserContext(user: user, accessList: list)
+        return try await context.encodeResponse(for: req)
+    }
+    
+    func changeAccess(_ req: Request) async throws -> Response {
+        struct ChangeAccessPost: Codable {
+            var userId: String?
+            var accessLevel: String?
+            var repoId: String?
+        }
         
+        guard let input = try? req.content.decode(ChangeAccessPost.self),
+              let userIdStr = input.userId,
+              let userId = UUID(uuidString: userIdStr),
+              let repoIdStr = input.repoId,
+              let repoId = UUID(uuidString: repoIdStr),
+              let accessLevelStr = input.accessLevel,
+              let accessLevel = AccessLevel(rawValue: accessLevelStr)
+        else {
+            throw Abort(.badRequest, reason: "Invalid input to change access request.")
+        }
+        
+        let ur = UserRepo.query(on: req.db).filter(\.$userId == userId).filter(\.$repoId == repoId)
+        if accessLevel == .none {
+            try await ur.delete()
+        }
+        else {
+            let id = try await ur.field(\.$id).first()?.id
+            let updt = UserRepo(id: id, userId: userId, repoId: repoId, accessLevel: accessLevel)
+            print(updt)
+            try await updt.save(on: req.db)
+        }
+        
+        return try await "ok".encodeResponse(for: req)
+    }
+    
+    
+    private func accessListForUser(_ req: Request, userId: UUID) async throws -> [AdminHostList] {
         let accessTree = try await MySQLDirect().getRepoListForUser(req, userId: userId)
         let hosts = Set(accessTree.map { $0.hostId })
         var list = [AdminHostList]()
@@ -107,9 +146,7 @@ class AdminController: RouteCollection {
             }
             list.append(adminHostList)
         }
-        
-        let context = AdminSingleUserContext(user: user, accessList: list)
-        return try await context.encodeResponse(for: req)
+        return list
     }
     
     
