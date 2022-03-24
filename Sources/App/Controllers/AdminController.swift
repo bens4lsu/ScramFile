@@ -7,7 +7,7 @@
 
 import Foundation
 import Vapor
-import Fluent
+import SQLKit
 import FluentMySQLDriver
 
 class AdminController: RouteCollection {
@@ -20,32 +20,43 @@ class AdminController: RouteCollection {
         var availableRepos: [ContentController.RepoListing] = []
     }
     
-    struct AdminRepoTreeBranch: Content, Comparable {
+    struct AdminRepoTreeBranch: Content {
         var hostId: UUID
         var hostName: String
         var repoId: UUID
         var repoName: String
         var accessLevel: AccessLevel
-        var newTree: Bool
+    }
+    
+    private struct AdminRepoList: Content, Comparable {
+        var repoId: UUID
+        var repoName: String
+        var accessLevel: AccessLevel
         
-        static func < (lhs: AdminController.AdminRepoTreeBranch, rhs: AdminController.AdminRepoTreeBranch) -> Bool {
-            if lhs.hostName == rhs.hostName {
-                return lhs.repoName < rhs.repoName
-            }
-            return lhs.hostName < rhs.hostName
+        static func < (lhs: AdminController.AdminRepoList, rhs: AdminController.AdminRepoList) -> Bool {
+            lhs.repoName < rhs.repoName
         }
+    }
+    
+    private struct AdminHostList: Content, Comparable {
+        var hostId: UUID
+        var hostName: String
+        var repos: [AdminRepoList]
         
+        static func < (lhs: AdminController.AdminHostList, rhs: AdminController.AdminHostList) -> Bool {
+            lhs.hostName < rhs.hostName
+        }
     }
     
     private struct AdminSingleUserContext: Content {
         var user: User.UserContext
-        var accessList: [AdminRepoTreeBranch]
+        var accessList: [AdminHostList]
     }
     
 
     func boot(routes: RoutesBuilder) throws {
         routes.get("admin", use: renderUserList)
-        routes.post("adminDetails", use: getSingleUser)
+        routes.post("adminUDetails", use: getSingleUser)
     }
     
     func renderUserList(_ req: Request) async throws -> View {
@@ -82,7 +93,22 @@ class AdminController: RouteCollection {
         }
         
         let accessTree = try await MySQLDirect().getRepoListForUser(req, userId: userId)
-        let context = AdminSingleUserContext(user: user, accessList: accessTree)
+        let hosts = Set(accessTree.map { $0.hostId })
+        var list = [AdminHostList]()
+        for host in hosts {
+            let hostName = accessTree.filter { $0.hostId == host }.first!.hostName
+            var adminHostList = AdminHostList(hostId: host, hostName: hostName, repos: [])
+            let repos = Set(accessTree.filter { $0.hostId == host }.map { $0.repoId })
+            for repo in repos {
+                let branch = accessTree.filter { $0.repoId == repo && $0.hostId == host }.first!
+                let access = branch.accessLevel
+                let repoName = branch.repoName
+                adminHostList.repos.append(AdminRepoList(repoId: repo, repoName: repoName, accessLevel: access))
+            }
+            list.append(adminHostList)
+        }
+        
+        let context = AdminSingleUserContext(user: user, accessList: list)
         return try await context.encodeResponse(for: req)
     }
     

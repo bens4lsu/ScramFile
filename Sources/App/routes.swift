@@ -18,10 +18,11 @@ func routes(_ app: Application, _ settings: ConfigurationSettings) throws {
     }
 
 */
-    
+
     app.get { req -> Response in
         SessionController.setUserId(req, UUID("DCBE4EAA-5CAF-11EB-A925-080027363641")!)
         SessionController.setIsAdmin(req, true)
         return req.redirect(to: "/top")
     }
+
 }

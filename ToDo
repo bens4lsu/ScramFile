@@ -2,3 +2,4 @@ ContentController
 
 1.  Make sure every request validates access rights.
 2.  Repo selector should be hidden for users with rights to only one repo.
+3.  Put the auto-login stuff inside an #if debug

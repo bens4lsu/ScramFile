@@ -3,9 +3,26 @@
     <script>
     
     function detailsFor(id) {
-        $.post("adminUDetails", {"id" : id}, function(){
-            
+        event.preventDefault();
+        $.post("adminUDetails", {"id" : id}, function(data, status){
+            console.log(data);
+            var accessHtml = "<ul>";
+            data.accessList.forEach(function(host, index){
+                accessHtml += "<li>" + host.hostName + "<ul>";
+                host.repos.forEach(function(repo, index){
+                    accessHtml += "<li><span>" + repo.repoName + "</span><span><select>";
+                    accessHtml += "<option value='none'>none</option>";
+                    accessHtml += "<option value='read'>read only</option>";
+                    accessHtml += "<option value='full'>full</option>";
+                    accessHtml += "</select></span></li>";
+                });
+                accessHtml += "</ul></li>";
+            });
+            accessHtml += "</ul>";
+            console.log(accessHtml);
+            $('#divAdminUserAccess').html(accessHtml);
         });
+        
     }
 
         
@@ -22,9 +39,7 @@
         </ul>
     </div>
     
-    <div id="divAdminUserDetails">
-    
-    </div>
+    <div id="divAdminUserAccess"></div>
     
         
     #endexport    

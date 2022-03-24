@@ -38,15 +38,14 @@ class MySQLDirect {
     
     func getRepoListForUser(_ req: Request, userId: UUID) async throws -> [AdminController.AdminRepoTreeBranch] {
         let sql = """
-            SELECT th.id
+            SELECT th.id as hostId
                 , th.hostName
-                , tr.id
+                , tr.id as repoId
                 , tr.repoName
                 , IFNULL(tur.accessLevel, 'none') AS accessLevel
-                , CASE WHEN LAG(th.hostName) OVER (PARTITION BY th.hostName ORDER BY tr.repoName ) IS NULL THEN 1 ELSE 0 END AS newTree
             FROM tblHosts th
                 JOIN tblRepos tr  ON th.id = tr.hostId
-                LEFT OUTER JOIN tblUserRepos tur ON tr.id  = tur.repoId AND tur.userId = ''
+                LEFT OUTER JOIN tblUserRepos tur ON tr.id  = tur.repoId AND tur.userId = '\(userId)'
         """
         
         return try await getResultsRows(req, query: sql, decodeUsing: AdminController.AdminRepoTreeBranch.self)

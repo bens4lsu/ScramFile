@@ -84,37 +84,26 @@ class ContentController: RouteCollection {
     
     // MARK: Request handlers
     
-    func renderHome(_ req: Request) throws -> EventLoopFuture<View> {
-        return try repoContext(req).flatMap { repoContext in
-            do {
-                let currentRepo = repoContext.filter{$0.isSelected}.first ?? repoContext[0]
-                SessionController.setCurrentRepo(req, currentRepo.repoId)
-                
-                let access = SessionController.getAccessLevelToCurrentRepo(req)
-                guard access == .read || access == .full else {
-                    let uid = (try? SessionController.getUserId(req)?.uuidString) ?? "nil"
-                    throw Abort(.unauthorized, reason: "User does not have access to this repository.  uid = \(uid)   repoid = \(currentRepo)")
-                }
-                
-                return try HostController().getHostContext(req, hostId: currentRepo.hostId).flatMap() { host in
-                    do {
-                        let directory = self.findDirectory(on: req, for: currentRepo)
-                        let contents = try self.directoryContents(on: req, for: directory)
+    func renderHome(_ req: Request) async throws -> View {
+        let repoContext = try await repoContext(req)
             
-                        let showSelector = repoContext.count > 1
-                        let pathAtTop = try self.folderHeirarchy(req)
-                        let context = HomeContext(title: "Secure File Repository:  \(currentRepo.repoName)", fileProps: contents, availableRepos: repoContext, showRepoSelector: showSelector, showAdmin: SessionController.getIsAdmin(req), pathAtTop: pathAtTop, hostInfo: host)
-                        return req.view.render("index", context)
-                    }
-                    catch {
-                        return req.eventLoop.makeFailedFuture(Abort(.internalServerError, reason: "failure in RenderHome method:  \(error)."))
-                    }
-                }
-            }
-            catch {
-                return req.eventLoop.makeFailedFuture(Abort(.internalServerError, reason: "failure in RenderHome method:  \(error)."))
-            }
+        let currentRepo = repoContext.filter{$0.isSelected}.first ?? repoContext[0]
+        SessionController.setCurrentRepo(req, currentRepo.repoId)
+        
+        let access = SessionController.getAccessLevelToCurrentRepo(req)
+        guard access == .read || access == .full else {
+            let uid = (try? SessionController.getUserId(req)?.uuidString) ?? "nil"
+            throw Abort(.unauthorized, reason: "User does not have access to this repository.  uid = \(uid)   repoid = \(currentRepo)")
         }
+        
+        let host = try await HostController().getHostContext(req, hostId: currentRepo.hostId)
+        let directory = try await self.findDirectory(on: req, for: currentRepo)
+        let contents = try self.directoryContents(on: req, for: directory)
+
+        let showSelector = repoContext.count > 1
+        let pathAtTop = try self.folderHeirarchy(req)
+        let context = HomeContext(title: "Secure File Repository:  \(currentRepo.repoName)", fileProps: contents, availableRepos: repoContext, showRepoSelector: showSelector, showAdmin: SessionController.getIsAdmin(req), pathAtTop: pathAtTop, hostInfo: host)
+        return try await req.view.render("index", context)
     }
     
     
@@ -132,13 +121,13 @@ class ContentController: RouteCollection {
               let newRepoId = UUID(uuidString: string) else {
             throw Abort(.badRequest, reason: "Invalid repo identifier requested.")
         }
-        
         SessionController.setCurrentRepo(req, newRepoId)
+        SessionController.setCurrentSubfolder(req, nil)
         return req.eventLoop.makeSucceededFuture(req.redirect(to: Self.urlRoot))
     }
     
     
-    public func upload(_ req: Request) throws -> EventLoopFuture<Response> {
+    public func upload(_ req: Request) async throws -> Response {
         struct Input: Content {
             var file: File
         }
@@ -148,28 +137,22 @@ class ContentController: RouteCollection {
         }
         
         let input = try req.content.decode(Input.self)
-        return try currentRepoContext(req).flatMap { repoListing in
-            do {
-                guard let repo = repoListing else{
-                    throw Abort(.internalServerError, reason: "Could not determine a current repository context.")
-                }
-                
-                let path = self.findDirectory(on: req, for: repo)
-                let newfile = path + "/" + input.file.filename
-                return req.application.fileio.openFile(path: newfile, mode: .write, flags: .allowFileCreation(posixMode: 0x744), eventLoop: req.eventLoop).flatMap { handle in
-                    return req.application.fileio.write(fileHandle: handle, buffer: input.file.data, eventLoop: req.eventLoop).flatMapThrowing { _ in
-                        try handle.close()
-                        return req.redirect(to: Self.urlRoot)
-                    }
-                }
-            }
-            catch {
-                return req.eventLoop.makeFailedFuture(Abort(.internalServerError, reason: error.localizedDescription))
-            }
+        let repoListing = try await currentRepoContext(req)
+        guard let repo = repoListing else{
+            throw Abort(.internalServerError, reason: "Could not determine a current repository context.")
         }
+        
+        let path = try await self.findDirectory(on: req, for: repo)
+        let newfile = path + "/" + input.file.filename
+        return try await req.application.fileio.openFile(path: newfile, mode: .write, flags: .allowFileCreation(posixMode: 0x744), eventLoop: req.eventLoop).flatMap { handle in
+            return req.application.fileio.write(fileHandle: handle, buffer: input.file.data, eventLoop: req.eventLoop).flatMapThrowing { _ in
+                try handle.close()
+                return req.redirect(to: Self.urlRoot)
+            }
+        }.get()
     }
     
-    public func createFolder(_ req: Request) throws -> EventLoopFuture<Response> {
+    public func createFolder(_ req: Request) async throws -> Response {
         struct FolderPost: Codable {
             var newFolder: String
         }
@@ -184,18 +167,17 @@ class ContentController: RouteCollection {
             throw Abort(.badRequest, reason: "Invalid folder identifier requested: \(newFolder)")
         }
         
-        return try currentRepoContext(req).flatMapThrowing { repoListing in
-            guard let repoListing = repoListing else {
-                throw Abort(.badRequest, reason: "Invalid repo specified for new folder.")
-            }
-            let dir = self.findDirectory(on: req, for: repoListing) + "/" + newFolder
-            try self.fileManager.createDirectory(atPath: dir, withIntermediateDirectories: false, attributes: nil)
-            return req.redirect(to: Self.urlRoot)
+        let repoListing = try await currentRepoContext(req)
+        guard let repoListing = repoListing else {
+            throw Abort(.badRequest, reason: "Invalid repo specified for new folder.")
         }
+        let dir = try await self.findDirectory(on: req, for: repoListing) + "/" + newFolder
+        try self.fileManager.createDirectory(atPath: dir, withIntermediateDirectories: false, attributes: nil)
+        return req.redirect(to: Self.urlRoot)
     }
     
     
-    func delete(_ req: Request) throws -> EventLoopFuture<Response> {
+    func delete(_ req: Request) async throws -> Response {
         struct FPPost: Codable {
             var pointers: [String]
         }
@@ -204,22 +186,20 @@ class ContentController: RouteCollection {
             throw Abort(.unauthorized, reason:  "User does not have write access to this repository.")
         }
         
-        return try currentRepoContext(req).flatMapThrowing { repoListing in
-
-            guard repoListing != nil else{
-                throw Abort(.internalServerError, reason: "Could not determine a current repository context.")
-            }
-            
-            let pointers = try req.content.decode(FPPost.self).pointers
-            for pointer in pointers {
-                let decodedPointer = try self.decodeFilePointer(pointer)
-                guard let fp = decodedPointer, let url = fp.url else {
-                    throw Abort(.badRequest, reason: "Delete requested for a key that is not a valid file pointer.")
-                }
-                try self.fileManager.removeItem(at: url)
-            }
-            return req.redirect(to: Self.urlRoot)
+        let repoListing = try await currentRepoContext(req)
+        guard repoListing != nil else{
+            throw Abort(.internalServerError, reason: "Could not determine a current repository context.")
         }
+        
+        let pointers = try req.content.decode(FPPost.self).pointers
+        for pointer in pointers {
+            let decodedPointer = try self.decodeFilePointer(pointer)
+            guard let fp = decodedPointer, let url = fp.url else {
+                throw Abort(.badRequest, reason: "Delete requested for a key that is not a valid file pointer.")
+            }
+            try self.fileManager.removeItem(at: url)
+        }
+        return req.redirect(to: Self.urlRoot)
     }
 
     
@@ -255,29 +235,29 @@ class ContentController: RouteCollection {
     
     // MARK:  Futures that help build the results for the public methods.
     
-    private func repoContext(_ req: Request) throws -> EventLoopFuture<[RepoListing]>{
+    private func repoContext(_ req: Request) async throws -> [RepoListing]{
         guard let userId = try SessionController.getUserId(req) else {
             throw Abort(.badRequest, reason: "Attempt to retrieve repo contact without a user id in the session.")
         }
         
-        return UserRepo.query(on: req.db).filter(\.$userId == userId).join(Repo.self, on: \UserRepo.$repoId == \Repo.$id).all().flatMapThrowing { userRepos in
-            guard userRepos.count >= 1 else {
-                throw Abort(.notFound, reason: "User does not have access to any file repositories.")
+        let userRepos = try await UserRepo.query(on: req.db).filter(\.$userId == userId).join(Repo.self, on: \UserRepo.$repoId == \Repo.$id).all()
+        guard userRepos.count >= 1 else {
+            throw Abort(.notFound, reason: "User does not have access to any file repositories.")
+        }
+        
+        var repoListing = [RepoListing]()
+        for userRepo in userRepos {
+            let repo = try userRepo.joined(Repo.self)
+            
+            guard let id = repo.id else {
+                throw Abort(.internalServerError, reason: "Unwrapped repo id problem.  This really can't happen")
             }
             
-            var repoListing = [RepoListing]()
-            for userRepo in userRepos {
-                let repo = try userRepo.joined(Repo.self)
-                
-                guard let id = repo.id else {
-                    throw Abort(.internalServerError, reason: "Unwrapped repo id problem.  This really can't happen")
-                }
-                
-                let isSelected = repo.id == SessionController.getCurrentRepo(req)
-                repoListing.append(RepoListing(repoId: id, repoName: repo.repoName, isSelected: isSelected, repoFolder: repo.repoFolder, hostId: repo.hostId))
-            }
-            return repoListing.sorted(by: \.repoName)
+            let isSelected = repo.id == SessionController.getCurrentRepo(req)
+            repoListing.append(RepoListing(repoId: id, repoName: repo.repoName, isSelected: isSelected, repoFolder: repo.repoFolder, hostId: repo.hostId))
         }
+        return repoListing.sorted(by: \.repoName)
+        
     }
     
     
@@ -306,8 +286,9 @@ class ContentController: RouteCollection {
     }
     
     
-    private func findDirectory(on req: Request, for repo: RepoListing) -> String {
-        let directory = req.application.directory.resourcesDirectory + "Repos/" + repo.repoFolder
+    private func findDirectory(on req: Request, for repo: RepoListing) async throws -> String {
+        let host = try await HostController().getHostContext(req, hostId: repo.hostId)
+        let directory = req.application.directory.resourcesDirectory + "Repos/" + host.hostFolder + "/" + repo.repoFolder
         guard let sub = SessionController.getCurrentSubfolder(req) else {
             return directory
         }
@@ -324,10 +305,8 @@ class ContentController: RouteCollection {
     }
     
     
-    private func currentRepoContext(_ req: Request) throws -> EventLoopFuture<RepoListing?> {
-        return try repoContext(req).map { context in
-            context.filter{$0.isSelected}.first
-        }
+    private func currentRepoContext(_ req: Request) async throws -> RepoListing? {
+        return try await repoContext(req).filter{$0.isSelected}.first
     }
     
     private func folderHeirarchy(_ req: Request) throws ->  [FileProp] {
