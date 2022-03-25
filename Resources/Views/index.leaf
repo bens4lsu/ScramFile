@@ -62,6 +62,7 @@
                             var newFolderName = $('#inpNewFolderName').val();
                             if (newFolderName.length >= 1){
                                 $.post("createFolder", {"newFolder" : newFolderName}, function(){
+                                    $('#inpNewFolderName').val("");
                                     location.reload();
                                 });
                             }

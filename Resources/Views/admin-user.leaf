@@ -6,47 +6,95 @@
         event.preventDefault();
         $("#divAdminUserDetails").css("display", "inline-block");
         $.post("adminUDetails", {"id" : id}, function(data, status){
-            console.log(data);
             $("#inpUserId").val(id);
             $("#inpUserName").val(data.user.userName);
             $("#inpEmailAddress").val(data.user.emailAddress);
             $("#inpIsActive").prop("checked", data.user.isActive);
             $("#inpIsAdmin").prop("checked", data.user.isAdmin);
-    
-            var accessHtml = "<ul>";
-            data.accessList.forEach(function(host, index){
-                accessHtml += "<li>" + host.hostName + "<ul>";
-                host.repos.forEach(function(repo, index){
-                    var fullAccess = repo.accessLevel == "full" ? " selected" : "";
-                    var readAccess = repo.accessLevel == "read" ? " selected" : "";
-                    var noAccess = repo.accessLevel != "full" && repo.accessLevel != "read" ? " selected" : "";
-                    accessHtml += "<li><span>" + repo.repoName + "</span><span><select id='sel-" + repo.repoId + "' class='sel-access'>";
-                    accessHtml += "<option value='none'" + noAccess + ">none</option>";
-                    accessHtml += "<option value='read'" + readAccess + ">read only</option>";
-                    accessHtml += "<option value='full'" + fullAccess + ">full</option>";
-                    accessHtml += "</select></span><span class='span-saved'>✅  Saved</span></li>";
-                });
-                accessHtml += "</ul></li>";
-            });
-            accessHtml += "</ul>";
-            $('#divAdminUserAccess').html(accessHtml);
-            $('.span-saved').hide();
-            
-            $(".sel-access").on("change", function() {
-                let thisSelect = $(this);
-                let reqData = {"userId" : $('#inpUserId').val(), "accessLevel" : $("option:selected", this).val(), "repoId" : $(this).attr('id').substr(4) };
-                $.post("adminChangeAccess", reqData, function(data, status){
-                    console.log($(this));
-                    thisSelect.parent().siblings('.span-saved').show();
-                    thisSelect.parent().siblings('.span-saved').fadeOut(3000);
-                });
-            });
+            populateAccessList(data.accessList);   
         });
     }
     
-
-
+    
+    function populateAccessList(repos) {
+        var accessHtml = "<ul>";
+        repos.forEach(function(repo, index){
+            var fullAccess = repo.accessLevel == "full" ? " selected" : "";
+            var readAccess = repo.accessLevel == "read" ? " selected" : "";
+            var noAccess = repo.accessLevel != "full" && repo.accessLevel != "read" ? " selected" : "";
+            accessHtml += "<li><span>" + repo.repoName + "</span><span><select id='sel-" + repo.repoId + "' class='sel-access'>";
+            accessHtml += "<option value='none'" + noAccess + ">none</option>";
+            accessHtml += "<option value='read'" + readAccess + ">read only</option>";
+            accessHtml += "<option value='full'" + fullAccess + ">full</option>";
+            accessHtml += "</select></span><span class='span-saved'>✅  Saved</span></li>";
+        });
+        accessHtml += "</ul>";
+        accessHtml += "<button id='btnAddNewRepo'>Add New Repository</button>"; 
         
+        
+        $('#divAdminUserAccess').html(accessHtml);
+        $('.span-saved').hide();
+        
+        $(".sel-access").on("change", function() {
+            let thisSelect = $(this);
+            let reqData = {"userId" : $('#inpUserId').val(), "accessLevel" : $("option:selected", this).val(), "repoId" : $(this).attr('id').substr(4) };
+            $.post("adminChangeAccess", reqData, function(data, status){
+                console.log($(this));
+                thisSelect.parent().siblings('.span-saved').show();
+                thisSelect.parent().siblings('.span-saved').fadeOut(3000);
+            });
+        });
+        
+        $("#btnAddNewRepo").button().click(function(){
+            $("#dlgNewRepo").dialog("open");
+        });
+    }
+    
+    
+    $(document).ready(function(){
+        $("#dlgNewRepo").dialog({
+            autoOpen: false,
+            width: 400,
+            modal: true,
+            buttons: [
+                {
+                    text: "Ok",
+                    click: function() {
+                        $('html, body').css("cursor", "wait");
+                        var newRepoName = $('#inpNewRepoName').val();
+                        if (newRepoName.length >= 1){
+                            $.post("adminCreateRepo", {"newRepoName" : newRepoName}, function(data){
+                                $('#inpNewFolderName').val("");
+                                populateAccessList(data);
+                                $("#dlgNewRepo").dialog("close");
+                            });
+                        }
+                        $('html, body').css("cursor", "unset");
+                    }
+                },
+                {
+                    text: "Cancel",
+                    click: function() {
+                        $( this ).dialog( "close" );
+                    }
+                }
+            ]
+        });
+        
+        $("#btnAdminSave").button().click(function(){
+            event.preventDefault();
+            let values = {"userId" : $("#inpUserId").val(),
+                          "userName" : $("#inpUserName").val(),
+                          "emailAddress" : $("#inpEmailAddress").val(),
+                          "isActive" : $("#inpIsActive").prop("checked"),
+                          "isAdmin" : $("#inpIsAdmin").prop("checked") };
+            $.post("adminUpdateUser", values, function(){
+            
+            });
+        });
+
+    });
+    
     </script>
     #endexport
     
@@ -68,12 +116,20 @@
             <div><label for="emailAddress">Email:</label><input type="text" name="emailAddress" id="inpEmailAddress"></div>
             <div><label for="isActive">Active:</label><input type="checkbox" name="isActive" id="inpIsActive">
                  <label for="isAdmin">Administrator Rights:</label><input type="checkbox" name="isAdmin" id="inpIsAdmin"></div>
+            <div><button id="btnAdminSave">Save</button><button id="btnChangePassword">Change Password</button>
         </form>
         <h2>Access Rights</h2>
         <div>Note:  Users with administrator rights have full access to all repositories.</div>
         <div id="divAdminUserAccess"></div>
     </div>
     
+    <div id="dlgNewRepo">
+        New Repository Name: <input id="inpNewRepoName">
+    </div>
+    
+    <div id="dlgNewPassword">
+        New Repository Name: <input id="inpNewRepoName">
+    </div>
         
     #endexport    
 #endextend    

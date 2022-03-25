@@ -27,11 +27,10 @@ final class Repo: Model, Content, Codable {
         
     init() { }
     
-    init (id: UUID, repoFolder: String, repoName: String) {
-        self.id = id
+    init (repoFolder: String, repoName: String) {
+        self.id = nil
         self.repoFolder = repoFolder
         self.repoName = repoName
-        //self.hostId = hostId
     }
 
 }

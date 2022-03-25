@@ -174,11 +174,12 @@ th, td {
     line-height: 2;
 }
 
-#divAdminUserAccess ul li ul li {
-    list-style-type: none;
-    padding-bottom: 12px;
-    font-weight: normal;
+#divAdminUserAccess ul li span:first-of-type{
+    width: 273px;
+    display: inline-block;
+    text-align: right;
 }
+
 .sel-access {
     margin-left:2em;
     width:110px;

@@ -41,7 +41,7 @@ class MySQLDirect {
             SELECT tr.id as repoId
                 , tr.repoName
                 , IFNULL(tur.accessLevel, 'none') AS accessLevel
-            FROM tblRepos
+            FROM tblRepos tr
                 LEFT OUTER JOIN tblUserRepos tur ON tr.id  = tur.repoId AND tur.userId = UUID_TO_BIN('\(userId)')
         """
         
