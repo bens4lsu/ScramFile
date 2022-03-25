@@ -38,13 +38,10 @@ class MySQLDirect {
     
     func getRepoListForUser(_ req: Request, userId: UUID) async throws -> [AdminController.AdminRepoTreeBranch] {
         let sql = """
-            SELECT th.id as hostId
-                , th.hostName
-                , tr.id as repoId
+            SELECT tr.id as repoId
                 , tr.repoName
                 , IFNULL(tur.accessLevel, 'none') AS accessLevel
-            FROM tblHosts th
-                JOIN tblRepos tr  ON th.id = tr.hostId
+            FROM tblRepos
                 LEFT OUTER JOIN tblUserRepos tur ON tr.id  = tur.repoId AND tur.userId = UUID_TO_BIN('\(userId)')
         """
         

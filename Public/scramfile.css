@@ -52,6 +52,13 @@ h1 {
     color: blue;
 }
 
+h2 {
+    font-size: 16pt;
+    background-color: #ccc;
+    width: 100%;
+    padding: 4px;
+}
+
 #path {
     border: 2px solid blue;
     margin-bottom:30px;
@@ -90,7 +97,7 @@ th, td {
     width: 15%;
     border: 2px solid blue;
     padding: 8px;
-    top: 260px;
+    top: 340px;
     border-radius: 8px;
 }
 
@@ -132,6 +139,7 @@ th, td {
     border: 1px solid blue;
     width: 18%;
     margin-right: 8px;
+    vertical-align:top;
 }
 
 #divAdminUserlist li {
@@ -146,7 +154,18 @@ th, td {
 #divAdminUserDetails {
     display: inline-block;
     border: 1px solid blue;
-    width: 80%;
+    width: 75%;
+    padding:20px;
+    vertical-align:top;
+    display:none;
+}
+
+#frmUserDetails label {
+    width:220px;
+    line-height: 2;
+    display: inline-block;
+    text-align: right;
+    margin-right: 1em;
 }
 
 #divAdminUserAccess ul li {
@@ -163,6 +182,10 @@ th, td {
 .sel-access {
     margin-left:2em;
     width:110px;
+}
+
+input[type=text] {
+    width:284px;
 }
 
 .span-saved {

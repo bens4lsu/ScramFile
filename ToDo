@@ -3,3 +3,14 @@ ContentController
 1.  Make sure every request validates access rights.
 2.  Repo selector should be hidden for users with rights to only one repo.
 3.  Put the auto-login stuff inside an #if debug
+
+
+Next:
+
+    0.  Unmarry repo and host.
+    
+    1.  Save user changes.
+    2.  Update password.
+    
+    3.  Add repo.
+    4.  Add user.

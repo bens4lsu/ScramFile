@@ -17,8 +17,8 @@ final class Host:  Model, Content, Codable {
     @ID
     var id: UUID?
 
-    @Field(key: "hostFolder")
-    var hostFolder: String
+//    @Field(key: "hostFolder")
+//    var hostFolder: String
 
     @Field(key: "hostName")
     var hostName: String

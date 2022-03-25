@@ -18,9 +18,6 @@ final class User: Model, Content, Codable {
     @Field(key: "userName")
     var userName: String
     
-    @Field(key: "userEncryptionKey")
-    var userEncryptionKey: String
-    
     @Field(key: "isAdmin")
     var isAdmin: Bool
     
@@ -38,13 +35,16 @@ final class User: Model, Content, Codable {
     struct UserContext: Content, Encodable {
         var id: UUID
         var userName: String
+        var emailAddress: String
+        var isActive: Bool
+        var isAdmin: Bool
     }
     
     func userContext() throws -> User.UserContext {
         guard let id = self.id else {
             throw Abort(.internalServerError, reason: "Attempt to retrieve contet for user with no id.")
         }
-        return UserContext(id: id, userName: self.userName)
+        return UserContext(id: id, userName: self.userName, emailAddress: self.emailAddress, isActive: self.isActive, isAdmin: self.isAdmin)
     }
 
 }

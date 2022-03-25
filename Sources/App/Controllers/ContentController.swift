@@ -52,7 +52,6 @@ class ContentController: RouteCollection {
         var repoName: String
         var isSelected: Bool
         var repoFolder: String
-        var hostId: UUID
     }
     
     private let fileManager = FileManager.default
@@ -255,7 +254,7 @@ class ContentController: RouteCollection {
             }
             
             let isSelected = repo.id == SessionController.getCurrentRepo(req)
-            repoListing.append(RepoListing(repoId: id, repoName: repo.repoName, isSelected: isSelected, repoFolder: repo.repoFolder, hostId: repo.hostId))
+            repoListing.append(RepoListing(repoId: id, repoName: repo.repoName, isSelected: isSelected, repoFolder: repo.repoFolder))
         }
         return repoListing.sorted(by: \.repoName)
         
@@ -288,8 +287,8 @@ class ContentController: RouteCollection {
     
     
     private func findDirectory(on req: Request, for repo: RepoListing) async throws -> String {
-        let host = try await hostController.getHostContext(req)
-        let directory = req.application.directory.resourcesDirectory + "Repos/" + host.hostFolder + "/" + repo.repoFolder
+        //let host = try await hostController.getHostContext(req)
+        let directory = req.application.directory.resourcesDirectory + "Repos/" + repo.repoFolder
         guard let sub = SessionController.getCurrentSubfolder(req) else {
             return directory
         }

@@ -22,16 +22,16 @@ final class Repo: Model, Content, Codable {
     @Field(key: "repoName")
     var repoName: String
 
-    @Field(key: "hostId")
-    var hostId: UUID
+//    @Field(key: "hostId")
+//    var hostId: UUID
         
     init() { }
     
-    init (id: UUID, repoFolder: String, repoName: String, hostId: UUID) {
+    init (id: UUID, repoFolder: String, repoName: String) {
         self.id = id
         self.repoFolder = repoFolder
         self.repoName = repoName
-        self.hostId = hostId
+        //self.hostId = hostId
     }
 
 }

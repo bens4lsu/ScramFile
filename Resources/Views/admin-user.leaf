@@ -4,8 +4,14 @@
     
     function detailsFor(id) {
         event.preventDefault();
+        $("#divAdminUserDetails").css("display", "inline-block");
         $.post("adminUDetails", {"id" : id}, function(data, status){
+            console.log(data);
             $("#inpUserId").val(id);
+            $("#inpUserName").val(data.user.userName);
+            $("#inpEmailAddress").val(data.user.emailAddress);
+            $("#inpIsActive").prop("checked", data.user.isActive);
+            $("#inpIsAdmin").prop("checked", data.user.isAdmin);
     
             var accessHtml = "<ul>";
             data.accessList.forEach(function(host, index){
@@ -55,9 +61,16 @@
     </div>
     
     <div id="divAdminUserDetails">
+        <h2>User Details</h2>
         <form id="frmUserDetails">
-            <input id="inpUserId">
+            <input id="inpUserId" style="display:none;">
+            <div><label for="userName">Name:</label><input type="text" name="userName" id="inpUserName"></div>
+            <div><label for="emailAddress">Email:</label><input type="text" name="emailAddress" id="inpEmailAddress"></div>
+            <div><label for="isActive">Active:</label><input type="checkbox" name="isActive" id="inpIsActive">
+                 <label for="isAdmin">Administrator Rights:</label><input type="checkbox" name="isAdmin" id="inpIsAdmin"></div>
         </form>
+        <h2>Access Rights</h2>
+        <div>Note:  Users with administrator rights have full access to all repositories.</div>
         <div id="divAdminUserAccess"></div>
     </div>
     
