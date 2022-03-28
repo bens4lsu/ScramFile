@@ -44,6 +44,7 @@ a {
 
 #content {
    margin-left:20px;
+   position: relative;
 }
 
 h1 {
@@ -133,13 +134,23 @@ th, td {
     margin-bottom: 4px;
 }
 
+#btnNewUser {
+    position: absolute;
+    left: 0;
+    width: 310px;
+}
+
+
 
 #divAdminUserlist {
     display: inline-block;
     border: 1px solid blue;
-    width: 18%;
+    width: 310px;
     margin-right: 8px;
     vertical-align:top;
+    position: absolute;
+    left: 0;
+    top: 40px;
 }
 
 #divAdminUserlist li {
@@ -154,10 +165,12 @@ th, td {
 #divAdminUserDetails {
     display: inline-block;
     border: 1px solid blue;
-    width: 75%;
     padding:20px;
     vertical-align:top;
     display:none;
+    position: absolute;
+    top: 0;
+    left: 330px;
 }
 
 #frmUserDetails label {

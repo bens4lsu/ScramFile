@@ -47,6 +47,18 @@ class MySQLDirect {
         
         return try await getResultsRows(req, query: sql, decodeUsing: AdminController.AdminRepoTreeBranch.self)
     }
+    
+    func deleteExpiredAndCompleted(_ req: Request, resetKey: String) async throws -> HTTPStatus {
+        let sql = """
+            DELETE FROM tblPasswordResetRequests
+            WHERE ResetRequestKey = UUID_TO_BIN('\(resetKey)')
+                OR Expiration < NOW()
+        """
+        try await issueQuery(req, query: sql)
+        return HTTPStatus.ok
+    }
+
+        
  
 }
 

@@ -43,11 +43,13 @@ class AdminController: RouteCollection {
     
 
     func boot(routes: RoutesBuilder) throws {
-        routes.get("admin", use: renderUserList)
-        routes.post("adminUDetails", use: getSingleUser)
-        routes.post("adminChangeAccess", use: changeAccess)
-        routes.post("adminCreateRepo", use: createNewRepo)
-        routes.post("adminUpdateUser", use: updateUser)
+        routes.group("admin") { group in
+            group.get(use: renderUserList)
+            routes.post("uDetails", use: getSingleUser)
+            routes.post("changeAccess", use: changeAccess)
+            routes.post("createRepo", use: createNewRepo)
+            routes.post("updateUser", use: updateUser)
+        }
     }
     
     func renderUserList(_ req: Request) async throws -> View {

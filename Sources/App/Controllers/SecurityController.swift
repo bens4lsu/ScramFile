@@ -45,7 +45,7 @@ class SecurityController: RouteCollection {
 //            group.post("create", use: createUser)
             //group.post("change-password", use: changePassword)
             group.post("request-password-reset", use: sendPWResetEmail)
-//            group.post("password-reset-process", ":resetString", use: verifyAndChangePassword)
+            group.post("password-reset-process", ":resetString", use: verifyAndChangePassword)
         }
         routes.get("login", use: loginTemp)
     }
@@ -247,7 +247,8 @@ extension SecurityController {
      
     
     private func verifyPasswordResetRequest(req: Request) async throws -> View {
-        guard let parameter = req.parameters.get("parameter") else {
+        print (req.parameters)
+        guard let parameter = req.parameters.get("resetString") else {
             throw Abort(.badRequest, reason: "Invalid password reset parameter received.")
         }
         
@@ -256,7 +257,7 @@ extension SecurityController {
         return try await req.view.render("users-password-change-form", context)
     }
     
-/*    private func verifyAndChangePassword(req: Request) async throws -> View {
+    private func verifyAndChangePassword(req: Request) async throws -> View {
         struct PostVars: Content {
             let pw1: String
             let pw2: String
@@ -268,6 +269,12 @@ extension SecurityController {
         let pw2 = vars.pw2
         let resetKey = vars.resetKey
         
+        guard let _ = UUID(vars.resetKey) else {
+            throw Abort(.badRequest, reason: "Invalid password reset key.")
+        }
+        
+        
+        
         guard pw1 == pw2 else {
             throw Abort(.badRequest, reason: "Form submitted two passwords that don't match.")
         }
@@ -278,8 +285,8 @@ extension SecurityController {
         // TODO:  enforce minimum password requirement (configuration?)
         // TODO:  verify no white space.  any other invalid characrters?
                 
-        async let changeTask = changePassword(req, userId: resetRequest.person, newPassword: pw1)
-        async let deleteTask = self.db.deleteExpiredAndCompleted(req, resetKey: resetKey)
+        async let changeTask = changePassword(req, userId: resetRequest.userId, newPassword: pw1)
+        async let deleteTask =  MySQLDirect().deleteExpiredAndCompleted(req, resetKey: resetKey)
         let (_, _) = (try await changeTask, try await deleteTask)
         return try await req.view.render("users-password-change-success")
     }
@@ -294,7 +301,7 @@ extension SecurityController {
     }
     
     
-    private func changePassword(_ req: Request) throws -> Future<User> {
+/*    private func changePassword(_ req: Request) throws -> Future<User> {
         let email: String = try req.content.syncGet(at: "emailAddress")
         let password: String = try req.content.syncGet(at: "password")
         

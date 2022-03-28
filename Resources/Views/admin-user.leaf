@@ -5,7 +5,7 @@
     function detailsFor(id) {
         event.preventDefault();
         $("#divAdminUserDetails").css("display", "inline-block");
-        $.post("adminUDetails", {"id" : id}, function(data, status){
+        $.post("/admin/uDetails", {"id" : id}, function(data, status){
             $("#inpUserId").val(id);
             $("#inpUserName").val(data.user.userName);
             $("#inpEmailAddress").val(data.user.emailAddress);
@@ -38,7 +38,7 @@
         $(".sel-access").on("change", function() {
             let thisSelect = $(this);
             let reqData = {"userId" : $('#inpUserId').val(), "accessLevel" : $("option:selected", this).val(), "repoId" : $(this).attr('id').substr(4) };
-            $.post("adminChangeAccess", reqData, function(data, status){
+            $.post("/admin/changeAccess", reqData, function(data, status){
                 console.log($(this));
                 thisSelect.parent().siblings('.span-saved').show();
                 thisSelect.parent().siblings('.span-saved').fadeOut(3000);
@@ -63,7 +63,7 @@
                         $('html, body').css("cursor", "wait");
                         var newRepoName = $('#inpNewRepoName').val();
                         if (newRepoName.length >= 1){
-                            $.post("adminCreateRepo", {"newRepoName" : newRepoName}, function(data){
+                            $.post("/admin/createRepo", {"newRepoName" : newRepoName}, function(data){
                                 $('#inpNewFolderName').val("");
                                 populateAccessList(data);
                                 $("#dlgNewRepo").dialog("close");
@@ -81,6 +81,37 @@
             ]
         });
         
+        
+        $("#dlgNewPassword").dialog({
+            autoOpen: false,
+            width: 400,
+            modal: true,
+            buttons: [
+                {
+                    text: "Ok",
+                    click: function() {
+                        $('html, body').css("cursor", "wait");
+                        var newRepoName = $('#inpNewRepoName').val();
+                        if (newRepoName.length >= 1){
+                            $.post("/admin/createRepo", {"newRepoName" : newRepoName}, function(data){
+                                $('#inpNewFolderName').val("");
+                                populateAccessList(data);
+                                $("#dlgNewRepo").dialog("close");
+                            });
+                        }
+                        $('html, body').css("cursor", "unset");
+                    }
+                },
+                {
+                    text: "Cancel",
+                    click: function() {
+                        $( this ).dialog( "close" );
+                    }
+                }
+            ]
+        });
+        
+        
         $("#btnAdminSave").button().click(function(){
             event.preventDefault();
             let values = {"userId" : $("#inpUserId").val(),
@@ -88,9 +119,15 @@
                           "emailAddress" : $("#inpEmailAddress").val(),
                           "isActive" : $("#inpIsActive").prop("checked"),
                           "isAdmin" : $("#inpIsAdmin").prop("checked") };
-            $.post("adminUpdateUser", values, function(){
-            
+            $.post("/admin/updateUser", values, function(){
+                $("#btnAdminSave").parent().parent().siblings('.span-saved').show();
+                $("#btnAdminSave").parent().parent().siblings('.span-saved').fadeOut(3000);
             });
+        });
+        
+        $("#btnChangePassword").button().click(function(){
+            event.preventDefault();
+            $("#dlgNewPassword").dialog("open");
         });
 
     });
@@ -101,6 +138,24 @@
 
     #export("content"):
     
+    <button id="btnNewUser">New User</button>
+ 
+    <div id="divAdminUserDetails">
+        <h2>User Details</h2>
+        <div class='span-saved'>✅  Saved</div>
+        <form id="frmUserDetails">
+            <input id="inpUserId" style="display:none;">
+            <div><label for="userName">Name:</label><input type="text" name="userName" id="inpUserName"></div>
+            <div><label for="emailAddress">Email:</label><input type="text" name="emailAddress" id="inpEmailAddress"></div>
+            <div><label for="isActive">Active:</label><input type="checkbox" name="isActive" id="inpIsActive">
+                 <label for="isAdmin">Administrator Rights:</label><input type="checkbox" name="isAdmin" id="inpIsAdmin"></div>
+            <div><button id="btnAdminSave">Save</button><button id="btnChangePassword">Change Password</button></div>
+        </form>
+        <h2>Access Rights</h2>
+        <div>Note:  Users with administrator rights have full access to all repositories.</div>
+        <div id="divAdminUserAccess"></div>
+    </div>
+    
     <div id="divAdminUserlist">
         <ul> #for(user in users):
             <li><a href="" onclick="detailsFor('#(user.id)');">#(user.userName)</a></li>
@@ -108,27 +163,16 @@
         </ul>
     </div>
     
-    <div id="divAdminUserDetails">
-        <h2>User Details</h2>
-        <form id="frmUserDetails">
-            <input id="inpUserId" style="display:none;">
-            <div><label for="userName">Name:</label><input type="text" name="userName" id="inpUserName"></div>
-            <div><label for="emailAddress">Email:</label><input type="text" name="emailAddress" id="inpEmailAddress"></div>
-            <div><label for="isActive">Active:</label><input type="checkbox" name="isActive" id="inpIsActive">
-                 <label for="isAdmin">Administrator Rights:</label><input type="checkbox" name="isAdmin" id="inpIsAdmin"></div>
-            <div><button id="btnAdminSave">Save</button><button id="btnChangePassword">Change Password</button>
-        </form>
-        <h2>Access Rights</h2>
-        <div>Note:  Users with administrator rights have full access to all repositories.</div>
-        <div id="divAdminUserAccess"></div>
-    </div>
     
     <div id="dlgNewRepo">
         New Repository Name: <input id="inpNewRepoName">
     </div>
     
     <div id="dlgNewPassword">
-        New Repository Name: <input id="inpNewRepoName">
+        <div><label for="inpNewPwd1">New Password:</label><input id="inpNewPwd1"></div>
+        <div><label for="inpNewPwd2">Confirm:</label><input id="inpNewPwd2"></div>
+        <div><button id="btnPickPassword">Pick PW For Me</button></div>
+        
     </div>
         
     #endexport    
