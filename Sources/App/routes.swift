@@ -1,5 +1,6 @@
 import Fluent
 import Vapor
+import Foundation
 
 func routes(_ app: Application, _ settings: ConfigurationSettings) throws {
         
@@ -28,6 +29,11 @@ func routes(_ app: Application, _ settings: ConfigurationSettings) throws {
 //    }
     
     app.get { req -> Response in
+        return req.redirect(to: "/security/login")
+    }
+    
+    app.get("logout") { req -> Response in
+        SessionController.kill(req)
         return req.redirect(to: "/security/login")
     }
 

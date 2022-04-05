@@ -119,15 +119,29 @@
                           "emailAddress" : $("#inpEmailAddress").val(),
                           "isActive" : $("#inpIsActive").prop("checked"),
                           "isAdmin" : $("#inpIsAdmin").prop("checked") };
-            $.post("/admin/updateUser", values, function(){
+            $.post("/admin/updateUser", values, function(resp){
                 $("#btnAdminSave").parent().parent().siblings('.span-saved').show();
                 $("#btnAdminSave").parent().parent().siblings('.span-saved').fadeOut(3000);
+                if ($("#inpUserId").val() == "") {
+                    if(!alert("New user created.  Password set to: \n" + resp)){
+                        window.location.reload();
+                    }
+                }
             });
         });
         
         $("#btnChangePassword").button().click(function(){
             event.preventDefault();
             $("#dlgNewPassword").dialog("open");
+        });
+        
+        $("#btnNewUser").button().click(function() {
+            $("#inpUserId").val("");
+            $("#inpUserName").val("");
+            $("#inpEmailAddress").val("");
+            $("#inpIsActive").prop("checked", true);
+            $("#inpIsAdmin").prop("checked", false);
+            $("#divAdminUserDetails").css("display", "inline-block");
         });
 
     });

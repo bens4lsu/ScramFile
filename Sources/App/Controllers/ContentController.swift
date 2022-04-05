@@ -21,6 +21,7 @@ class ContentController: RouteCollection {
         var showAdmin: Bool
         var pathAtTop: [FileProp]
         var hostInfo: Host
+        var isWritable: Bool
     }
 
     private struct FileProp: Encodable {
@@ -98,11 +99,12 @@ class ContentController: RouteCollection {
         
         let directory = try await self.findDirectory(on: req, for: currentRepo)
         let contents = try self.directoryContents(on: req, for: directory)
-
+        
+        let isWriteable = SessionController.getAccessLevelToCurrentRepo(req) == .full
         let showSelector = repoContext.count > 1
         let pathAtTop = try self.folderHeirarchy(req)
         let host = try await hostController.getHostContext(req)
-        let context = HomeContext(title: "Secure File Repository:  \(currentRepo.repoName)", fileProps: contents, availableRepos: repoContext, showRepoSelector: showSelector, showAdmin: SessionController.getIsAdmin(req), pathAtTop: pathAtTop, hostInfo: host)
+        let context = HomeContext(title: "Secure File Repository:  \(currentRepo.repoName)", fileProps: contents, availableRepos: repoContext, showRepoSelector: showSelector, showAdmin: SessionController.getIsAdmin(req), pathAtTop: pathAtTop, hostInfo: host, isWritable: isWriteable)
         return try await req.view.render("index", context)
     }
     
@@ -236,25 +238,15 @@ class ContentController: RouteCollection {
     // MARK:  Futures that help build the results for the public methods.
     
     private func repoContext(_ req: Request) async throws -> [RepoListing]{
-        guard let userId = try SessionController.getUserId(req) else {
-            throw Abort(.badRequest, reason: "Attempt to retrieve repo contact without a user id in the session.")
-        }
-        
-        let userRepos = try await UserRepo.query(on: req.db).filter(\.$userId == userId).join(Repo.self, on: \UserRepo.$repoId == \Repo.$id).all()
-        guard userRepos.count >= 1 else {
-            throw Abort(.notFound, reason: "User does not have access to any file repositories.")
+        guard let userRepos = SessionController.getRepoAcccessList(req) else {
+            throw Abort(.forbidden, reason: "User does not have repository access.")
         }
         
         var repoListing = [RepoListing]()
         for userRepo in userRepos {
-            let repo = try userRepo.joined(Repo.self)
             
-            guard let id = repo.id else {
-                throw Abort(.internalServerError, reason: "Unwrapped repo id problem.  This really can't happen")
-            }
-            
-            let isSelected = repo.id == SessionController.getCurrentRepo(req)
-            repoListing.append(RepoListing(repoId: id, repoName: repo.repoName, isSelected: isSelected, repoFolder: repo.repoFolder))
+            let isSelected = userRepo.repoId == SessionController.getCurrentRepo(req)
+            repoListing.append(RepoListing(repoId: userRepo.repoId, repoName: userRepo.repoName, isSelected: isSelected, repoFolder: userRepo.repoFolder))
         }
         return repoListing.sorted(by: \.repoName)
         

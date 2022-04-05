@@ -32,6 +32,14 @@ final class User: Model, Content, Codable {
     
     init() { }
     
+    init (userName: String, isAdmin: Bool, emailAddress: String, isActive: Bool, passwordHash: String) {
+        self.userName  = userName
+        self.isAdmin = isAdmin
+        self.emailAddress = emailAddress
+        self.isActive = isActive
+        self.passwordHash = passwordHash
+    }
+    
     struct UserContext: Content, Encodable {
         var id: UUID
         var userName: String

@@ -182,49 +182,51 @@
     
 
     #export("content"):
-        <h1>#(title)</h1>
-  
+    <h1>#(title)</h1>
+
+
+    <div id="path"><span>Path:</span>
+        <ul>
+            <li><a href="/top">#(title)</a> /</li> 
+            #for(path in pathAtTop): <li><a href="#(path.link)">#(path.name)</a> / </li>#endfor
+        </ul>
+    </div>
+
+    <table>
+        <thead><tr>
+            <th class="col1">&nbsp;</th>
+            <th class="col3">Name</th>
+            <th class="col4">Modified</th>
+            <th class="col5">Size</th>
+        </tr></thead>
+        <tbody>
+            #for(file in fileProps):
+                <tr><td><input type="checkbox"></td>
+                    <td><a href="#(file.link)" class="a-download">
+                            #if(file.name == ".."):
+                                <img src="images/icon-folder-up.png" alt="[]" style="height:18px; margin-right:0.5em;">
+                            #elseif(file.isDirectory): <img src="images/icon-folder.png" alt="[]" style="height:18px; margin-right:0.5em;">
+                            #endif 
+                            
+                            #if(file.name != ".."):
+                                #(file.name)
+                            #endif
+                    </a></td>
+                    <td>#date(file.modified, "MM/dd/yyyy hh:mm")</td>
+                    <td>#(file.size)</td>
+                </tr>
+            #endfor
+        </tbody>
+    </table>
     
-        <div id="path"><span>Path:</span>
-            <ul>
-                <li><a href="/top">#(title)</a> /</li> 
-                #for(path in pathAtTop): <li><a href="#(path.link)">#(path.name)</a> / </li>#endfor
-            </ul>
-        </div>
-  
-        <table>
-            <thead><tr>
-                <th class="col1">&nbsp;</th>
-                <th class="col3">Name</th>
-                <th class="col4">Modified</th>
-                <th class="col5">Size</th>
-            </tr></thead>
-            <tbody>
-                #for(file in fileProps):
-                    <tr><td><input type="checkbox"></td>
-                        <td><a href="#(file.link)" class="a-download">
-                                #if(file.name == ".."):
-                                    <img src="images/icon-folder-up.png" alt="[]" style="height:18px; margin-right:0.5em;">
-                                #elseif(file.isDirectory): <img src="images/icon-folder.png" alt="[]" style="height:18px; margin-right:0.5em;">
-                                #endif 
-                                
-                                #if(file.name != ".."):
-                                    #(file.name)
-                                #endif
-                        </a></td>
-                        <td>#date(file.modified, "MM/dd/yyyy hh:mm")</td>
-                        <td>#(file.size)</td>
-                    </tr>
-                #endfor
-            </tbody>
-        </table>
-        
-        <div id="options">
-            <p><a href="" onclick="createFolder()">Create Folder</a></p>
-            <p><a href="" onclick="uploadFile()">Upload File</a></p>
-            <p><a href="" onclick="deleteChecked()" id="pDeleteChecked" style="visibility: hidden;">Delete Checked</a></p>
-            <o><a href="" onclick="shareChecked()" id="pShareChecked" style="visibility: hidden;">Share Checked</a></p>
-        </div>
+    #if(isWritable): 
+    <div id="options">
+        <p><a href="" onclick="createFolder()">Create Folder</a></p>
+        <p><a href="" onclick="uploadFile()">Upload File</a></p>
+        <p><a href="" onclick="deleteChecked()" id="pDeleteChecked" style="visibility: hidden;">Delete Checked</a></p>
+        <p><a href="" onclick="shareChecked()" id="pShareChecked" style="visibility: hidden;">Share Checked</a></p>
+    </div>
+    #endif
     
     <div id="dlgUpload">
         <form action="/upload" method="post" enctype="multipart/form-data" id="frmUploadFile">

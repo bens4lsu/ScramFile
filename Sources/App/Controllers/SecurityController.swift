@@ -15,9 +15,15 @@ import SMTPKitten
 
 class SecurityController: RouteCollection {
     
-    struct UserRepoAccess: Codable {
+    struct UserRepoAccess: Codable, Comparable {
         var repoId: UUID
         var accessLevel: AccessLevel
+        var repoName: String
+        var repoFolder:String
+        
+        static func < (lhs: SecurityController.UserRepoAccess, rhs: SecurityController.UserRepoAccess) -> Bool {
+            lhs.repoName < rhs.repoName
+        }
     }
     
     let settings: ConfigurationSettings
@@ -47,19 +53,8 @@ class SecurityController: RouteCollection {
             group.post("request-password-reset", use: sendPWResetEmail)
             group.post("password-reset-process", ":resetString", use: verifyAndChangePassword)
         }
-        routes.get("login", use: loginTemp)
     }
-    
-    func loginTemp(_ req: Request) throws -> EventLoopFuture<Response> {
-        SessionController.setUserId(req, UUID(uuidString: "DCBE4EAA-5CAF-11EB-A925-080027363641")!)
-        SessionController.setIsAdmin(req, false)
-        let accessList = [UserRepoAccess(repoId: UUID(uuidString: "C902CC11-5CCE-11EB-ADE5-08002775BC34")!, accessLevel: .full),
-                          UserRepoAccess(repoId: UUID(uuidString: "CFE61787-5CCE-11EB-ADE5-08002775BC34")!, accessLevel: .full)]
-        SessionController.setRepoAccesssList(req, accessList)
-        return req.eventLoop.makeSucceededFuture(req.redirect(to: ContentController.urlRoot))
-    }
-    
-    
+        
     // MARK:  Methods connected to routes that return Views
     private func renderLogin(_ req: Request) throws -> EventLoopFuture<View> {
         return req.view.render("users-login")
@@ -115,13 +110,30 @@ class SecurityController: RouteCollection {
             guard user.isActive else {
                 throw Abort(.unauthorized, reason: "User's system access has been revoked.")
             }
-            
-            //login sucess
+            // figure out which repos user has permission to see, and update the session.
+            // done
             return user
         }()
         
         SessionController.setUserId(req, user.id!)
         SessionController.setIsAdmin(req, user.isAdmin)
+        
+        
+        let userRepos = try await UserRepo.query(on: req.db).filter(\.$userId == user.id!).join(Repo.self, on: \UserRepo.$repoId == \Repo.$id).all()
+        var userRepoAccess = [UserRepoAccess]()
+        for repo in userRepos {
+            if repo.accessLevel != .none {
+                let aRepo = try repo.joined(Repo.self)
+                let access = UserRepoAccess(repoId: repo.id!, accessLevel: repo.accessLevel, repoName: aRepo.repoName, repoFolder: aRepo.repoFolder)
+                userRepoAccess.append(access)
+            }
+        }
+        SessionController.setRepoAccesssList(req, userRepoAccess)
+        guard let defaultRepo = userRepoAccess.sorted().first else {
+            throw Abort(.internalServerError, reason: "Unable to set default repository for user.")
+        }
+        SessionController.setCurrentRepo(req, defaultRepo.repoId)
+        
         return req.redirect(to: "/top")
     }
     

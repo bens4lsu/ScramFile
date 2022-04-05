@@ -16,7 +16,7 @@
     
         <div id="main-menu">
             <ul>
-                #if(! hideRepoSelector):<li>
+                #if(showRepoSelector):<li>
                     <select id="sel-repo">
                         #for(repo in availableRepos):
                             <option value="#(repo.repoId)" #if(repo.isSelected): selected #endif>#(repo.repoName)</option>
@@ -29,8 +29,8 @@
                 <li>Shared With Me</li>
                 <li>Secrets</li>
                 -->
-                <li><a href="/admin">Admin</a></li>
-                <li>Log Out</li>
+                #if(showAdmin): <li><a href="/admin">Admin</a></li> #endif
+                <li><a href="logout">Log Out</a></li>
             </ul>
         </div>
     

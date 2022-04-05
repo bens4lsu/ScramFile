@@ -45,17 +45,20 @@ class AdminController: RouteCollection {
     func boot(routes: RoutesBuilder) throws {
         routes.group("admin") { group in
             group.get(use: renderUserList)
-            routes.post("uDetails", use: getSingleUser)
-            routes.post("changeAccess", use: changeAccess)
-            routes.post("createRepo", use: createNewRepo)
-            routes.post("updateUser", use: updateUser)
+            group.post("uDetails", use: getSingleUser)
+            group.post("changeAccess", use: changeAccess)
+            group.post("createRepo", use: createNewRepo)
+            group.post("updateUser", use: updateUser)
         }
     }
     
     func renderUserList(_ req: Request) async throws -> View {
+        
+        guard SessionController.getIsAdmin(req) else { throw Abort(.forbidden, reason: "User does not have access to administrator functionality.") }
+        
         async let users = User.query(on: req.db).all().map { try $0.userContext() }
         
-        guard let userId = try? SessionController.getUserId(req) else {
+        guard let _ = try? SessionController.getUserId(req) else {
             throw Abort (.internalServerError, reason: "Can not use Admin when there is no user in session.")
         }
         
@@ -67,6 +70,9 @@ class AdminController: RouteCollection {
     
     
     func getSingleUser(_ req: Request) async throws -> Response {
+        
+        guard SessionController.getIsAdmin(req) else { throw Abort(.forbidden, reason: "User does not have access to administrator functionality.") }
+        
         struct UserPost: Codable {
             var id: String?
         }
@@ -84,6 +90,9 @@ class AdminController: RouteCollection {
     }
     
     func changeAccess(_ req: Request) async throws -> Response {
+        
+        guard SessionController.getIsAdmin(req) else { throw Abort(.forbidden, reason: "User does not have access to administrator functionality.") }
+        
         struct ChangeAccessPost: Codable {
             var userId: String?
             var accessLevel: String?
@@ -116,6 +125,9 @@ class AdminController: RouteCollection {
     }
     
     func createNewRepo(_ req: Request) async throws -> Response {
+        
+        guard SessionController.getIsAdmin(req) else { throw Abort(.forbidden, reason: "User does not have access to administrator functionality.") }
+        
         struct NewRepoPost: Codable {
             var newRepoName: String?
         }
@@ -141,6 +153,9 @@ class AdminController: RouteCollection {
     }
     
     func updateUser(_ req: Request) async throws -> Response {
+        
+        guard SessionController.getIsAdmin(req) else { throw Abort(.forbidden, reason: "User does not have access to administrator functionality.") }
+        
         struct UpdateUserPost: Codable {
             var userId: String?
             var userName: String?
@@ -149,30 +164,44 @@ class AdminController: RouteCollection {
             var isAdmin: String?
         }
         
+        
         guard let input = try? req.content.decode(UpdateUserPost.self),
-              let userIdStr = input.userId,
-              let userId = UUID(uuidString: userIdStr),
               let userName = input.userName,
-              let emailAddress = input.emailAddress,
-              let user = try? await User.find(userId, on: req.db)
+              let emailAddress = input.emailAddress
         else {
             throw Abort(.badRequest, reason: "Invalid input to update request.")
         }
         
-        print(input)
+        var user: User
+        let pw = try PWSettings().newPassword()
+        if input.userId == nil || input.userId == "" {
+            let hash = try Bcrypt.hash(pw)
+            user = User(userName: "", isAdmin: false, emailAddress: "", isActive: false, passwordHash: hash)
+        }
+        else {
+            guard let userId = UUID(input.userId!),
+                  let userTmp = try await User.find(userId, on: req.db)
+            else {
+                throw Abort(.badRequest, reason: "Invalid input to update request.")
+            }
+            user = userTmp
+        }
+        
         let isActive = input.isActive == "true"
         let isAdmin = input.isAdmin == "true"
         user.userName = userName
         user.emailAddress = emailAddress
         user.isAdmin = isAdmin
         user.isActive = isActive
-        print(user)
         try await user.save(on: req.db)
-        return try req.redirect(to: "/admin")
+        return try await pw.encodeResponse(for: req)
     }
     
     
     private func accessListForUser(_ req: Request, userId: UUID) async throws -> [AdminRepoList] {
+        
+        guard SessionController.getIsAdmin(req) else { throw Abort(.forbidden, reason: "User does not have access to administrator functionality.") }
+        
         let accessTree = try await MySQLDirect().getRepoListForUser(req, userId: userId)
         var list = [AdminRepoList]()
         let repos = Set(accessTree.map { $0.repoId })
@@ -186,74 +215,4 @@ class AdminController: RouteCollection {
         return list.sorted()
     }
     
-    
-    
 }
-//
-//    struct UserRepoContext: Codable, Content {
-//        var repoId: UUID
-//        var repoName: String
-//        var accessLevel: AccessLevel
-//    }
-//
-//    struct UserContext: Codable, Content {
-//
-//    }
-//
-//
-
-//
-//    func getUserList(_ req: Request) -> EventLoopFuture<View> {
-//        struct AdminUserContext: Encodable {
-//            var userList: [User]
-//        }
-//
-//        return User.query(on: req.db).all().flatMap { users in
-//            let context = AdminUserContext(userList: users)
-//            return req.view.render("admin-user", context)
-//        }
-//    }
-//
-//    func getSingleUser(_ req: Request) throws -> EventLoopFuture<[RepoContext]> {
-//        struct UserPost: Codable {
-//            var userId: String
-//        }
-//
-//        guard let input = try? req.content.decode(UserPost.self),
-//              let userId = UUID(uuidString: input.userId) else {
-//            throw Abort(.badRequest, reason: "Requested admin access to a user that does not exist.")
-//        }
-//
-//        return UserRepo.query(on: req.db).filter(\.$userId == userId).join(Repo.self, on: \UserRepo.$repoId == \Repo.$id).all().flatMapThrowing { userRepos in
-//
-//            var repoContext = [RepoContext]()
-//            for userRepo in userRepos {
-//                let repo = try userRepo.joined(Repo.self)
-//                let thisLine = RepoContext(repoId: userRepo.repoId, repoName: repo.repoName, accessLevel: userRepo.accessLevel)
-//                repoContext.append(thisLine)
-//            }
-//            let sorted = repoContext.sorted(by: \.repoName)
-//
-//            return User.find(userId, on: req.db) { user in
-//                guard let user = user else {
-//                    throw Abort(.badRequest, reason: "Could not find requested user in database.")
-//                }
-//
-//                return user
-//            }
-//
-//        }
-//
-//        let userContext: EventLoopFuture<User> = User.find(userId, on: req.db) { user in
-//            guard let user = user else {
-//                throw Abort(.badRequest, reason: "Could not find requested user in database.")
-//            }
-//
-//            return user
-//        }
-//
-//        return repoContextArray.map { repoContext in
-//            return repoContext
-//        }.map(
-//    }
-//}

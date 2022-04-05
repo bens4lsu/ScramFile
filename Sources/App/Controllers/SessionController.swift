@@ -67,7 +67,7 @@ class SessionController {
         if self.getIsAdmin(req) {
             return .full
         }
-              
+        
         guard let accessList = getRepoAcccessList(req),
               let currentRepo = getCurrentRepo(req),
               let accessToCurrent = accessList.filter({$0.repoId == currentRepo}).first
