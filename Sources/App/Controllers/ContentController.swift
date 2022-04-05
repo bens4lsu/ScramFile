@@ -22,6 +22,7 @@ class ContentController: RouteCollection {
         var pathAtTop: [FileProp]
         var hostInfo: Host
         var isWritable: Bool
+        var version: String
     }
 
     private struct FileProp: Encodable {
@@ -102,9 +103,10 @@ class ContentController: RouteCollection {
         
         let isWriteable = SessionController.getAccessLevelToCurrentRepo(req) == .full
         let showSelector = repoContext.count > 1
+        let version = try Version().versionLong
         let pathAtTop = try self.folderHeirarchy(req)
         let host = try await hostController.getHostContext(req)
-        let context = HomeContext(title: "Secure File Repository:  \(currentRepo.repoName)", fileProps: contents, availableRepos: repoContext, showRepoSelector: showSelector, showAdmin: SessionController.getIsAdmin(req), pathAtTop: pathAtTop, hostInfo: host, isWritable: isWriteable)
+        let context = HomeContext(title: "Secure File Repository:  \(currentRepo.repoName)", fileProps: contents, availableRepos: repoContext, showRepoSelector: showSelector, showAdmin: SessionController.getIsAdmin(req), pathAtTop: pathAtTop, hostInfo: host, isWritable: isWriteable, version: version)
         return try await req.view.render("index", context)
     }
     

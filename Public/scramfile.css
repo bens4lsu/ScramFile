@@ -207,3 +207,9 @@ input[type=text] {
     font-weight: bold;
     margin-left:2em;
 }
+
+#footer {
+    clear: both;
+    font-size: 70%;
+    margin-top: 100px;
+}

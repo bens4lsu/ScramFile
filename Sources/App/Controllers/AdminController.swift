@@ -18,6 +18,7 @@ class AdminController: RouteCollection {
         var users: [User.UserContext]
         var hideRepoSelector:Bool = true
         var availableRepos: [ContentController.RepoListing] = []
+        var version: String
     }
     
     struct AdminRepoTreeBranch: Content {
@@ -63,8 +64,9 @@ class AdminController: RouteCollection {
         }
         
         let host = try await HostController().getHostContext(req)
+        let version = try Version().versionLong
         
-        let context = AdminUserContext(host: host, users: try await users)
+        let context = AdminUserContext(host: host, users: try await users, version: version)
         return try await req.view.render("admin-user", context)
     }
     
@@ -205,7 +207,6 @@ class AdminController: RouteCollection {
         let accessTree = try await MySQLDirect().getRepoListForUser(req, userId: userId)
         var list = [AdminRepoList]()
         let repos = Set(accessTree.map { $0.repoId })
-        print(access)
         for repo in repos {
             let branch = accessTree.filter { $0.repoId == repo}.first!
             let access = branch.accessLevel
