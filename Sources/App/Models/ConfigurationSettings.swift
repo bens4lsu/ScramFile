@@ -16,6 +16,7 @@ class ConfigurationSettings: Decodable {
         let username: String
         let password: String
         let database: String
+        let certificateVerificationString: String
     }
     
     struct Smtp: Codable {
@@ -50,13 +51,13 @@ class ConfigurationSettings: Decodable {
     let resetKeyExpDuration: Int
     let systemRootPublicURL: String
     let maxFileSize: String
-    let certificateVerificationString: String
+    
     
     var certificateVerification: CertificateVerification {
-        if certificateVerificationString == "noHostnameVerification" {
+        if database.certificateVerificationString == "noHostnameVerification" {
             return .noHostnameVerification
         }
-        else if certificateVerificationString == "fullVerification" {
+        else if database.certificateVerificationString == "fullVerification" {
             return .fullVerification
         }
         return .none
@@ -74,9 +75,7 @@ class ConfigurationSettings: Decodable {
             self.emailMessages = decoder.emailMessages
             self.resetKeyExpDuration = decoder.resetKeyExpDuration
             self.systemRootPublicURL = decoder.systemRootPublicURL
-            self.maxFileSize = decoder.maxFileSize
-            self.certificateVerificationString = decoder.certificateVerificationString
-            
+            self.maxFileSize = decoder.maxFileSize            
         }
         catch {
             print ("Could not initialize app from Config.json.  Initilizing with hard-coded default values. \n \(error)")
