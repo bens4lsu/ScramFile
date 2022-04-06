@@ -12,12 +12,15 @@ public func configure(_ app: Application) throws {
         
     let settings = ConfigurationSettings()
     
+    var tls = TLSConfiguration.makeClientConfiguration()
+    tls.certificateVerification = keys.database.certificateVerification
+    
     app.databases.use(.mysql(
         hostname: settings.database.hostname,
         username: settings.database.username,
         password: settings.database.password,
         database: settings.database.database,
-        tlsConfiguration: nil
+        tlsConfiguration: tls
     ), as: .mysql)
     
     app.http.server.configuration.port = settings.listenOnPort
