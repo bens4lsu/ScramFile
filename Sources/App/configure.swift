@@ -13,7 +13,7 @@ public func configure(_ app: Application) throws {
     let settings = ConfigurationSettings()
     
     var tls = TLSConfiguration.makeClientConfiguration()
-    tls.certificateVerification = keys.database.certificateVerification
+    tls.certificateVerification = settings.certificateVerification
     
     app.databases.use(.mysql(
         hostname: settings.database.hostname,

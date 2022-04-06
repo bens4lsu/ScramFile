@@ -6,6 +6,7 @@
 //
 
 import Vapor
+import NIOSSL
 
 class ConfigurationSettings: Decodable {
     
@@ -49,6 +50,17 @@ class ConfigurationSettings: Decodable {
     let resetKeyExpDuration: Int
     let systemRootPublicURL: String
     let maxFileSize: String
+    let certificateVerificationString: String
+    
+    var certificateVerification: CertificateVerification {
+        if certificateVerificationString == "noHostnameVerification" {
+            return .noHostnameVerification
+        }
+        else if certificateVerificationString == "fullVerification" {
+            return .fullVerification
+        }
+        return .none
+    }
     
     init() {
         let path = DirectoryConfiguration.detect().resourcesDirectory
@@ -63,6 +75,7 @@ class ConfigurationSettings: Decodable {
             self.resetKeyExpDuration = decoder.resetKeyExpDuration
             self.systemRootPublicURL = decoder.systemRootPublicURL
             self.maxFileSize = decoder.maxFileSize
+            self.certificateVerificationString = decoder.certificateVerificationString
             
         }
         catch {
