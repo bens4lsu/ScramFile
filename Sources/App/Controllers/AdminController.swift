@@ -150,6 +150,12 @@ class AdminController: RouteCollection {
         try fileManager.createDirectory(atPath: directory, withIntermediateDirectories: false, attributes: nil)
         let newRepo = Repo(repoFolder: newRepoName, repoName: newRepoName)
         try await newRepo.save(on: req.db)
+        
+        var repoList = SessionController.getRepoAcccessList(req) ?? []
+        let newEntry = SecurityController.UserRepoAccess(repoId: newRepo.id!, accessLevel: .full, repoName: newRepo.repoName, repoFolder: newRepo.repoFolder)
+        repoList.append(newEntry)
+        SessionController.setRepoAccesssList(req, repoList)
+        
         return try await accessListForUser(req, userId: userId).encodeResponse(for: req)
 
     }

@@ -44,7 +44,7 @@
     </div>
     
     <div id="footer">
-        <div style="float:right">#(version)</div>
+        <div>#(version)</div>
     </div>
     
 </body>

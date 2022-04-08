@@ -118,20 +118,35 @@ class SecurityController: RouteCollection {
         SessionController.setUserId(req, user.id!)
         SessionController.setIsAdmin(req, user.isAdmin)
         
-        
         let userRepos = try await UserRepo.query(on: req.db).filter(\.$userId == user.id!).join(Repo.self, on: \UserRepo.$repoId == \Repo.$id).all()
         var userRepoAccess = [UserRepoAccess]()
-        for repo in userRepos {
-            if repo.accessLevel != .none {
-                let aRepo = try repo.joined(Repo.self)
-                let access = UserRepoAccess(repoId: repo.id!, accessLevel: repo.accessLevel, repoName: aRepo.repoName, repoFolder: aRepo.repoFolder)
+        
+        // if this list is empty, and the user is an admin, load all repos
+        if userRepos.isEmpty && user.isAdmin {
+            let allRepos = try await Repo.query(on: req.db).all()
+            for aRepo in allRepos {
+                let newUserRepo = UserRepo(id: nil, userId: user.id!, repoId: aRepo.id!, accessLevel: .full)
+                try await newUserRepo.save(on: req.db).get()
+                let access = UserRepoAccess(repoId: newUserRepo.id!, accessLevel: .full, repoName: aRepo.repoName, repoFolder: aRepo.repoFolder)
                 userRepoAccess.append(access)
             }
         }
+        // normal access init
+        else {
+            for repo in userRepos {
+                if repo.accessLevel != .none {
+                    let aRepo = try repo.joined(Repo.self)
+                    let access = UserRepoAccess(repoId: repo.id!, accessLevel: repo.accessLevel, repoName: aRepo.repoName, repoFolder: aRepo.repoFolder)
+                    userRepoAccess.append(access)
+                }
+            }
+        }
+        
         SessionController.setRepoAccesssList(req, userRepoAccess)
         guard let defaultRepo = userRepoAccess.sorted().first else {
             throw Abort(.internalServerError, reason: "Unable to set default repository for user.")
         }
+        
         SessionController.setCurrentRepo(req, defaultRepo.repoId)
         
         return req.redirect(to: "/top")

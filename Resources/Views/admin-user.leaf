@@ -154,6 +154,13 @@
     
     <button id="btnNewUser">New User</button>
  
+        <div id="divAdminUserlist">
+        <ul> #for(user in users):
+            <li><a href="" onclick="detailsFor('#(user.id)');">#(user.userName)</a></li>
+            #endfor 
+        </ul>
+    </div>
+    
     <div id="divAdminUserDetails">
         <h2>User Details</h2>
         <div class='span-saved'>✅  Saved</div>
@@ -169,14 +176,6 @@
         <div>Note:  Users with administrator rights have full access to all repositories.</div>
         <div id="divAdminUserAccess"></div>
     </div>
-    
-    <div id="divAdminUserlist">
-        <ul> #for(user in users):
-            <li><a href="" onclick="detailsFor('#(user.id)');">#(user.userName)</a></li>
-            #endfor 
-        </ul>
-    </div>
-    
     
     <div id="dlgNewRepo">
         New Repository Name: <input id="inpNewRepoName">
