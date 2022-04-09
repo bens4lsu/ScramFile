@@ -9,10 +9,22 @@
 </head">
 
 <body>
+
+    <script>
+        var colors = #unsafeHTML(hostInfo.colors);
+        
+        $(document).ready(function(){ 
+            $("#path").css("border-color", colors.backgroundColor);
+            $("h1").css("color", colors.backgroundColor);
+            $("#options").css("border-color", colors.backgroundColor);
+            $("#content a").css("color", colors.tableLinkColor);
+        });        
+    </script>
+    
     #import("javascript")
     
     <div id="header">
-        <div id="logo"><img src="/images/logo-kidderschultz.png"></div>
+        <div id="logo"><img src="/images/#(hostInfo.logo)"></div>
     
         <div id="main-menu">
             <ul>

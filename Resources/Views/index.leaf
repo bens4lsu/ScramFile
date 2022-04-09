@@ -1,19 +1,10 @@
 #extend("layout"):
     #export("javascript"):
     <script>
-    
-    
-        var colors = #unsafeHTML(hostInfo.colors);
-    
+        
         $(document).ready(function(){
 
-            $("#path").css("border-color", colors.backgroundColor);
-            $("h1").css("color", colors.backgroundColor);
-            $("#options").css("border-color", colors.backgroundColor);
-            $("#content a").css("color", colors.tableLinkColor);
-   
-        
-            $("a.a-download").on("click", function(e){
+           $("a.a-download").on("click", function(e){
                 e.preventDefault();
                 var link = $(this).attr('href');
                 if (link.substring(0, 8) == "download") {
