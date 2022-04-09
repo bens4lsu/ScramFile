@@ -173,7 +173,7 @@
             <div><button id="btnAdminSave">Save</button><button id="btnChangePassword">Change Password</button></div>
         </form>
         <h2>Access Rights</h2>
-        <div>Note:  Users with administrator rights have full access to all repositories.</div>
+        <div style = "font-size: 75%;">Note:  Users with administrator rights have full access to all repositories, but setting access = none will keep it out of the drop list.</div>
         <div id="divAdminUserAccess"></div>
     </div>
     
