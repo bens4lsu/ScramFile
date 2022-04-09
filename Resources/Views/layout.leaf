@@ -11,6 +11,7 @@
 <body>
 
     <script>
+    
         var colors = #unsafeHTML(hostInfo.colors);
         
         $(document).ready(function(){ 

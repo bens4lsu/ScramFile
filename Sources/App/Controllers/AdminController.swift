@@ -14,7 +14,7 @@ class AdminController: RouteCollection {
     
     
     private struct AdminUserContext: Content {
-        var host: Host
+        var hostInfo: Host
         var users: [User.UserContext]
         var hideRepoSelector:Bool = true
         var availableRepos: [ContentController.RepoListing] = []
@@ -57,7 +57,7 @@ class AdminController: RouteCollection {
         
         guard SessionController.getIsAdmin(req) else { throw Abort(.forbidden, reason: "User does not have access to administrator functionality.") }
         
-        async let users = User.query(on: req.db).all().map { try $0.userContext() }
+        let users = try await User.query(on: req.db).all().map { try $0.userContext() }
         
         guard let _ = try? SessionController.getUserId(req) else {
             throw Abort (.internalServerError, reason: "Can not use Admin when there is no user in session.")
@@ -66,7 +66,7 @@ class AdminController: RouteCollection {
         let host = try await HostController().getHostContext(req)
         let version = try Version().versionLong
         
-        let context = AdminUserContext(host: host, users: try await users, version: version)
+        let context = AdminUserContext(hostInfo: host, users: users, version: version)
         return try await req.view.render("admin-user", context)
     }
     
