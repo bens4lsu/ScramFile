@@ -264,8 +264,8 @@ class ContentController: RouteCollection {
             let filePath = directory + "/" + file
             let attribs = try self.fileManager.attributesOfItem(atPath: filePath)
             let modDate = attribs[.modificationDate] as? Date
-            let fileType = (attribs[.type] as? String) ?? ""
-            let isDirectory = fileType == "NSFileTypeDirectory"
+            let fileType = attribs[.type] as? Foundation.FileAttributeType
+            let isDirectory = (fileType?.rawValue ?? "zz") == "NSFileTypeDirectory"
             let fileSize = attribs[.size] as? UInt64 ?? UInt64(0)
             let fileSizeFormatted = isDirectory ? "-" : ByteCountFormatter.string(fromByteCount: Int64(fileSize), countStyle: .file)
             let filePointer = try FilePointer(directory: directory, fileName: file, isDirectory: isDirectory).encoded()
