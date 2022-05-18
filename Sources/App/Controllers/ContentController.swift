@@ -264,6 +264,7 @@ class ContentController: RouteCollection {
             let filePath = directory + "/" + file
             let attribs = try self.fileManager.attributesOfItem(atPath: filePath)
             let modDate = attribs[.modificationDate] as? Date
+            print (attribs[.type])
             let fileType = attribs[.type] as? String
             let isDirectory = fileType == "NSFileTypeDirectory"
             let fileSize = attribs[.size] as? UInt64 ?? UInt64(0)
