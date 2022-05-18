@@ -271,6 +271,7 @@ class ContentController: RouteCollection {
             let filePointer = try FilePointer(directory: directory, fileName: file, isDirectory: isDirectory).encoded()
             let link = isDirectory ? "folder/" + filePointer : "download/" + filePointer
             let listItem = FileProp(name: file, modified: modDate, isDirectory: isDirectory, size: fileSizeFormatted, link: link, allowDeletes: true)
+            print(listItem)
             dirList.append(listItem)
         }
         if SessionController.getCurrentSubfolder(req) != nil {
