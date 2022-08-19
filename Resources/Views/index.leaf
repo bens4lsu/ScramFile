@@ -3,7 +3,7 @@
     <script>
         
         $(document).ready(function(){
-
+            
            $("a.a-download").on("click", function(e){
                 e.preventDefault();
                 var link = $(this).attr('href');
@@ -210,14 +210,12 @@
         </tbody>
     </table>
     
-    #if(isWritable): 
-    <div id="options">
+    <div id="options" style="visibility: #if(isWritable):visible; #else: hidden; #endif">
         <p><a href="" onclick="createFolder()">Create Folder</a></p>
         <p><a href="" onclick="uploadFile()">Upload File</a></p>
         <p><a href="" onclick="deleteChecked()" id="pDeleteChecked" style="visibility: hidden;">Delete Checked</a></p>
         <p><a href="" onclick="shareChecked()" id="pShareChecked" style="visibility: hidden;">Share Checked</a></p>
     </div>
-    #endif
     
     <div id="dlgUpload">
         <form action="/upload" method="post" enctype="multipart/form-data" id="frmUploadFile">

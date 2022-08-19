@@ -221,12 +221,12 @@ class AdminController: RouteCollection {
     
     func updateUserPassword(_ req: Request) async throws -> HTTPResponseStatus {
         struct UpdatePWPost: Codable {
-            var userId: String?
+            var user: String?
             var pw: String?
         }
         
         guard let input = try? req.content.decode(UpdatePWPost.self),
-              let userId = input.userId,
+              let userId = input.user,
               let pw = input.pw,
               let userIdGuid = UUID(userId)
         else {
