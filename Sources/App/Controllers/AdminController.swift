@@ -16,7 +16,7 @@ class AdminController: RouteCollection {
     private struct AdminUserContext: Content {
         var hostInfo: Host
         var users: [User.UserContext]
-        var hideRepoSelector:Bool = true
+//        var hideRepoSelector: Bool = true
         var availableRepos: [ContentController.RepoListing] = []
         var version: String
     }
@@ -37,9 +37,10 @@ class AdminController: RouteCollection {
         }
     }
     
-    private struct AdminSingleUserContext: Content {
+    private struct AdminSingleUserContext: Content, Encodable {
         var user: User.UserContext
         var accessList: [AdminRepoList]
+        var warnNoAccess: Bool
     }
     
     let securityController: SecurityController
@@ -96,7 +97,9 @@ class AdminController: RouteCollection {
             throw Abort(.badRequest, reason: "Requested admin access to a user that does not exist.")
         }
         let list = try await accessListForUser(req, userId: userId)
-        let context = AdminSingleUserContext(user: user, accessList: list)
+        let warnNoAccess = !user.isAdmin && list.filter({$0.accessLevel != .none}).count == 0
+        let context = AdminSingleUserContext(user: user, accessList: list, warnNoAccess: warnNoAccess)
+        print(context)
         return try await context.encodeResponse(for: req)
     }
     

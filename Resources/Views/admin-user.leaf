@@ -13,6 +13,14 @@
             $("#inpEmailAddress").val(data.user.emailAddress);
             $("#inpIsActive").prop("checked", data.user.isActive);
             $("#inpIsAdmin").prop("checked", data.user.isAdmin);
+            console.log(data);
+            if (data.warnNoAccess) {
+                $('#divWarnNoAccess').css("display", "block");
+            }
+            else {
+                $('#divWarnNoAccess').css("display", "none");
+            }
+            
             populateAccessList(data.accessList);   
             currentUserId = id;
         });
@@ -190,6 +198,7 @@
             <div><button id="btnAdminSave">Save</button><button id="btnChangePassword">Change Password</button></div>
         </form>
         <h2>Access Rights</h2>
+        <div id="divWarnNoAccess">Warning:  a non-admin user with no access to at least one repository will not be able to log in.</div>
         <div style = "font-size: 75%;">Note:  Users with administrator rights have full access to all repositories, but setting access = none will keep it out of the drop list.</div>
         <div id="divAdminUserAccess"></div>
     </div>

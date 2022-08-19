@@ -225,6 +225,8 @@ input[type=text] {
     margin-left:2em;
 }
 
+#divWarnNoAccess {font-size: 75%; color:#ff0000; padding-bottom: 8px; display: none;}
+
 #footer {
     position: relative;
     height: 60px;
