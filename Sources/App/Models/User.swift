@@ -10,6 +10,8 @@ import Fluent
 import FluentMySQLDriver
 
 final class User: Model, Content, Codable {
+
+    
     static let schema = "tblUsers"
     
     @ID
@@ -40,12 +42,20 @@ final class User: Model, Content, Codable {
         self.passwordHash = passwordHash
     }
     
-    struct UserContext: Content, Encodable {
+    struct UserContext: Content, Encodable, Comparable {
         var id: UUID
         var userName: String
         var emailAddress: String
         var isActive: Bool
         var isAdmin: Bool
+        
+        static func < (lhs: UserContext, rhs: UserContext) -> Bool {
+            lhs.userName < rhs.userName
+        }
+        
+        static func == (lhs: UserContext, rhs: UserContext) -> Bool {
+            lhs.userName == rhs.userName
+        }
     }
     
     func userContext() throws -> User.UserContext {

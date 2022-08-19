@@ -28,7 +28,7 @@ if (window.self != window.top) {
     <form method="post">
     <p>Email Address: <input type="text" name="email" /></p>
     <p>Password: <input type="password" name="password"  /></p>
-    <p><input type="submit" class="btn btn-lg btn-primary" /></p>
+    <p><input type="submit" class="btn btn-lg btn-primary" value="Submit"/></p>
     </form>
     <a href="request-password-reset">Reset Password</a>
 </body>

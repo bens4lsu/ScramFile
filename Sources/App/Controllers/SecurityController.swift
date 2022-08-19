@@ -318,7 +318,7 @@ extension SecurityController {
         return try await req.view.render("users-password-change-success")
     }
     
-    private func changePassword(_ req: Request, userId: UUID, newPassword: String) async throws -> HTTPResponseStatus {
+    func changePassword(_ req: Request, userId: UUID, newPassword: String) async throws -> HTTPResponseStatus {
         let userMatch = try await User.query(on:req.db).filter(\.$id == userId).all()
         let user = userMatch[0]
         let passwordHash = try Bcrypt.hash(newPassword)

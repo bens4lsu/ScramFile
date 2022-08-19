@@ -2,6 +2,8 @@
     #export("javascript"):
     <script>
     
+    var currentUserId;
+    
     function detailsFor(id) {
         event.preventDefault();
         $("#divAdminUserDetails").css("display", "inline-block");
@@ -12,6 +14,7 @@
             $("#inpIsActive").prop("checked", data.user.isActive);
             $("#inpIsAdmin").prop("checked", data.user.isAdmin);
             populateAccessList(data.accessList);   
+            currentUserId = id;
         });
     }
     
@@ -84,22 +87,28 @@
         
         $("#dlgNewPassword").dialog({
             autoOpen: false,
-            width: 400,
+            width: 480,
             modal: true,
             buttons: [
                 {
                     text: "Ok",
                     click: function() {
-                        $('html, body').css("cursor", "wait");
-                        var newRepoName = $('#inpNewRepoName').val();
-                        if (newRepoName.length >= 1){
-                            $.post("/admin/createRepo", {"newRepoName" : newRepoName}, function(data){
-                                $('#inpNewFolderName').val("");
-                                populateAccessList(data);
-                                $("#dlgNewRepo").dialog("close");
-                            });
+                        if ($('#inpNewPwd1').val() != $('#inpNewPwd2').val()) {
+                            alert ("Passwords do not match.");
                         }
-                        $('html, body').css("cursor", "unset");
+                        else {
+                            $('html, body').css("cursor", "wait");
+                            var newPw = $('#inpNewPwd1').val();
+                            $.post("/admin/updatePw", {"pw" : newPw, "user" : currentUserId}, function(data){
+                                    alert ("Password succesfully changed.");
+                                    $("#dlgNewPassword").dialog("close");
+                                }).fail(function(e) {
+                                    alert ("Request to change password failed. \n" + e.responseJSON.reason);
+                                    console.log(e);
+                                });
+                        
+                            $('html, body').css("cursor", "unset");
+                        }
                     }
                 },
                 {
@@ -143,6 +152,14 @@
             $("#inpIsAdmin").prop("checked", false);
             $("#divAdminUserDetails").css("display", "inline-block");
         });
+        
+        $('#btnPickPassword').button().click(function() {
+            event.preventDefault();
+            $.get("/admin/getPassword", function(resp) {
+                $('#inpNewPwd1').val(resp);
+                $('#inpNewPwd2').val(resp);
+            });
+        });
 
     });
     
@@ -182,10 +199,11 @@
     </div>
     
     <div id="dlgNewPassword">
-        <div><label for="inpNewPwd1">New Password:</label><input id="inpNewPwd1"></div>
-        <div><label for="inpNewPwd2">Confirm:</label><input id="inpNewPwd2"></div>
-        <div><button id="btnPickPassword">Pick PW For Me</button></div>
-        
+        <form id="frmNewPassword">
+            <div><label for="inpNewPwd1">New Password:</label><input id="inpNewPwd1"></div>
+            <div><label for="inpNewPwd2">Confirm:</label><input id="inpNewPwd2"></div>
+            <div><button id="btnPickPassword">Pick PW For Me</button></div>
+        </form>        
     </div>
         
     #endexport    

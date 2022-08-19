@@ -5,8 +5,11 @@ import Foundation
 func routes(_ app: Application, _ settings: ConfigurationSettings) throws {
         
     try app.register(collection: ContentController(settings))
-    try app.register(collection: SecurityController(settings))
-    try app.register(collection: AdminController())
+    
+    let securityController = SecurityController(settings)
+    try app.register(collection: securityController)
+    
+    try app.register(collection: AdminController(securityController))
 
     
     

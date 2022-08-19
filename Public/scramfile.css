@@ -1,6 +1,6 @@
 body {
     font-family: Helvetica, Arial, sans-serif;
-    font-size: 16pt;  
+    font-size: 13pt;  
     position: relative;
 }
 
@@ -184,6 +184,18 @@ th, td {
     display: inline-block;
     text-align: right;
     margin-right: 1em;
+}
+
+#frmNewPassword label {
+    width:190px;
+    line-height: 2;
+    display: inline-block;
+    text-align: right;
+    margin-right: 1em;
+}
+
+#frmNewPassword input {
+    width:220px;
 }
 
 #divAdminUserAccess ul li {

@@ -42,6 +42,12 @@ class AdminController: RouteCollection {
         var accessList: [AdminRepoList]
     }
     
+    let securityController: SecurityController
+    
+    init(_ securityController: SecurityController) {
+        self.securityController = securityController
+    }
+    
 
     func boot(routes: RoutesBuilder) throws {
         routes.group("admin") { group in
@@ -50,6 +56,8 @@ class AdminController: RouteCollection {
             group.post("changeAccess", use: changeAccess)
             group.post("createRepo", use: createNewRepo)
             group.post("updateUser", use: updateUser)
+            group.get("getPassword", use: getNewPassword)
+            group.post("updatePw", use: updateUserPassword)
         }
     }
     
@@ -57,7 +65,8 @@ class AdminController: RouteCollection {
         
         guard SessionController.getIsAdmin(req) else { throw Abort(.forbidden, reason: "User does not have access to administrator functionality.") }
         
-        let users = try await User.query(on: req.db).all().map { try $0.userContext() }
+        var users = try await User.query(on: req.db).all().map { try $0.userContext() }
+        users.sort()
         
         guard let _ = try? SessionController.getUserId(req) else {
             throw Abort (.internalServerError, reason: "Can not use Admin when there is no user in session.")
@@ -203,6 +212,28 @@ class AdminController: RouteCollection {
         user.isActive = isActive
         try await user.save(on: req.db)
         return try await pw.encodeResponse(for: req)
+    }
+    
+    func getNewPassword(_ req: Request) async throws -> Response {
+        let pw = try PWSettings().newPassword()
+        return try await pw.encodeResponse(for: req)
+    }
+    
+    func updateUserPassword(_ req: Request) async throws -> HTTPResponseStatus {
+        struct UpdatePWPost: Codable {
+            var userId: String?
+            var pw: String?
+        }
+        
+        guard let input = try? req.content.decode(UpdatePWPost.self),
+              let userId = input.userId,
+              let pw = input.pw,
+              let userIdGuid = UUID(userId)
+        else {
+            throw Abort(.badRequest, reason: "Invalid input to update password request.")
+        }
+        
+        return try await securityController.changePassword(req, userId: userIdGuid, newPassword: pw)
     }
     
     
