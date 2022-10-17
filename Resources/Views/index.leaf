@@ -210,7 +210,7 @@
         </tbody>
     </table>
     
-    <div id="options" style="visibility: #if(isWritable):visible; #else: hidden; #endif">
+    <div id="options" style="visibility: hidden;">
         <p><a href="" onclick="createFolder()">Create Folder</a></p>
         <p><a href="" onclick="uploadFile()">Upload File</a></p>
         <p><a href="" onclick="deleteChecked()" id="pDeleteChecked" style="visibility: hidden;">Delete Checked</a></p>
