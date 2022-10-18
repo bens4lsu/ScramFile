@@ -90,7 +90,12 @@ class ContentController: RouteCollection {
     func renderHome(_ req: Request) async throws -> View {
         let repoContextAll = try await repoContext(req)
         let repoContext = repoContextAll.filter { $0.accessLevel != .none }
-            
+        
+        if SessionController.getIsAdmin(req) && repoContext.count == 0 {
+            // user is admin but has no access to anything
+            throw Abort.redirect(to: "/admin")
+        }
+        
         let currentRepo = repoContext.filter{$0.isSelected}.first ?? repoContext[0]
         SessionController.setCurrentRepo(req, currentRepo.repoId)
         
