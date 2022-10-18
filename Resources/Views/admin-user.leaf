@@ -13,17 +13,19 @@
             $("#inpEmailAddress").val(data.user.emailAddress);
             $("#inpIsActive").prop("checked", data.user.isActive);
             $("#inpIsAdmin").prop("checked", data.user.isAdmin);
-            console.log(data);
-            if (data.warnNoAccess) {
-                $('#divWarnNoAccess').css("display", "block");
-            }
-            else {
-                $('#divWarnNoAccess').css("display", "none");
-            }
-            
             populateAccessList(data.accessList);   
             currentUserId = id;
+            warnNoAccess(data.warnNoAccess);
         });
+    }
+    
+    function warnNoAccess(val) {
+        if (val) {
+            $('#divWarnNoAccess').css("display", "block");
+        }
+        else {
+            $('#divWarnNoAccess').css("display", "none");
+        }
     }
     
     
@@ -54,6 +56,13 @@
                 thisSelect.parent().siblings('.span-saved').show();
                 thisSelect.parent().siblings('.span-saved').fadeOut(3000);
             });
+            var showWarn = true;
+            $(".sel-access").each(function (i, obj) {
+                if ($("option:selected", this).val() != "none") {
+                    showWarn = false;
+                }
+            });
+            warnNoAccess(showWarn);
         });
         
         $("#btnAddNewRepo").button().click(function(){

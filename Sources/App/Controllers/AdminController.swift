@@ -102,7 +102,7 @@ class AdminController: RouteCollection {
             throw Abort(.badRequest, reason: "Requested admin access to a user that does not exist.")
         }
         let list = try await accessListForUser(req, userId: userId)
-        let warnNoAccess = !user.isAdmin && list.filter({$0.accessLevel != .none}).count == 0
+        let warnNoAccess = list.filter({$0.accessLevel != .none}).count == 0
         let context = AdminSingleUserContext(user: user, accessList: list, warnNoAccess: warnNoAccess)
         return try await context.encodeResponse(for: req)
     }
