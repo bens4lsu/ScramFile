@@ -21,20 +21,25 @@ class AdminController: RouteCollection {
         var version: String
     }
     
-    struct AdminRepoTreeBranch: Content {
-        var repoId: UUID
-        var repoName: String
-        var accessLevel: AccessLevel
-    }
+//    struct AdminRepoTreeBranch: Content {
+//        var repoId: UUID
+//        var repoName: String
+//        var accessLevel: AccessLevel
+//    }
     
-    private struct AdminRepoList: Content, Comparable {
+    struct AdminRepoList: Content, Comparable {
         var repoId: UUID
         var repoName: String
         var accessLevel: AccessLevel
+        var repoFolder: String
         
         static func < (lhs: AdminController.AdminRepoList, rhs: AdminController.AdminRepoList) -> Bool {
             lhs.repoName < rhs.repoName
         }
+        
+//        func toSCUserRepoAccess(_ req: Request) async throws -> SecurityController.UserRepoAccess {
+//            return SecurityController.UserRepoAccess(repoId: self.repoId, accessLevel: self.accessLevel, repoName: self.repoName, repoFolder: repo.repoFolder)
+//        }
     }
     
     private struct AdminSingleUserContext: Content, Encodable {
@@ -99,7 +104,6 @@ class AdminController: RouteCollection {
         let list = try await accessListForUser(req, userId: userId)
         let warnNoAccess = !user.isAdmin && list.filter({$0.accessLevel != .none}).count == 0
         let context = AdminSingleUserContext(user: user, accessList: list, warnNoAccess: warnNoAccess)
-        print(context)
         return try await context.encodeResponse(for: req)
     }
     
@@ -131,10 +135,10 @@ class AdminController: RouteCollection {
         else {
             let id = try await ur.field(\.$id).first()?.id
             let updt = UserRepo(id: id, userId: userId, repoId: repoId, accessLevel: accessLevel)
-            print(updt)
             try await updt.save(on: req.db)
         }
         
+        let _ = try await accessListForUser(req, userId: userId)
         return try await "ok".encodeResponse(for: req)
     }
     
@@ -162,11 +166,6 @@ class AdminController: RouteCollection {
         try fileManager.createDirectory(atPath: directory, withIntermediateDirectories: false, attributes: nil)
         let newRepo = Repo(repoFolder: newRepoName, repoName: newRepoName)
         try await newRepo.save(on: req.db)
-        
-        var repoList = SessionController.getRepoAcccessList(req) ?? []
-        let newEntry = SecurityController.UserRepoAccess(repoId: newRepo.id!, accessLevel: .full, repoName: newRepo.repoName, repoFolder: newRepo.repoFolder)
-        repoList.append(newEntry)
-        SessionController.setRepoAccesssList(req, repoList)
         
         return try await accessListForUser(req, userId: userId).encodeResponse(for: req)
 
@@ -245,14 +244,17 @@ class AdminController: RouteCollection {
         guard SessionController.getIsAdmin(req) else { throw Abort(.forbidden, reason: "User does not have access to administrator functionality.") }
         
         let accessTree = try await MySQLDirect().getRepoListForUser(req, userId: userId)
+        print(accessTree)
         var list = [AdminRepoList]()
         let repos = Set(accessTree.map { $0.repoId })
         for repo in repos {
             let branch = accessTree.filter { $0.repoId == repo}.first!
             let access = branch.accessLevel
             let repoName = branch.repoName
-            list.append(AdminRepoList(repoId: repo, repoName: repoName, accessLevel: access))
+            let folder = branch.repoFolder
+            list.append(AdminRepoList(repoId: repo, repoName: repoName, accessLevel: access, repoFolder: folder))
         }
+        SessionController.setRepoAccesssList(req, list)
         return list.sorted()
     }
     

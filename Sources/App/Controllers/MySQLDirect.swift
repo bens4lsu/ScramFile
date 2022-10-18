@@ -36,16 +36,17 @@ class MySQLDirect {
     }
     
     
-    func getRepoListForUser(_ req: Request, userId: UUID) async throws -> [AdminController.AdminRepoTreeBranch] {
+    func getRepoListForUser(_ req: Request, userId: UUID) async throws -> [AdminController.AdminRepoList] {
         let sql = """
             SELECT tr.id as repoId
                 , tr.repoName
                 , IFNULL(tur.accessLevel, 'none') AS accessLevel
+                , tr.repoFolder
             FROM tblRepos tr
                 LEFT OUTER JOIN tblUserRepos tur ON tr.id  = tur.repoId AND tur.userId = UUID_TO_BIN('\(userId)')
         """
         
-        return try await getResultsRows(req, query: sql, decodeUsing: AdminController.AdminRepoTreeBranch.self)
+        return try await getResultsRows(req, query: sql, decodeUsing: AdminController.AdminRepoList.self)
     }
     
     func deleteExpiredAndCompleted(_ req: Request, resetKey: String) async throws -> HTTPStatus {

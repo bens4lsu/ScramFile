@@ -54,6 +54,7 @@ class ContentController: RouteCollection {
         var repoName: String
         var isSelected: Bool
         var repoFolder: String
+        var accessLevel: AccessLevel
     }
     
     private let fileManager = FileManager.default
@@ -87,7 +88,8 @@ class ContentController: RouteCollection {
     // MARK: Request handlers
     
     func renderHome(_ req: Request) async throws -> View {
-        let repoContext = try await repoContext(req)
+        let repoContextAll = try await repoContext(req)
+        let repoContext = repoContextAll.filter { $0.accessLevel != .none }
             
         let currentRepo = repoContext.filter{$0.isSelected}.first ?? repoContext[0]
         SessionController.setCurrentRepo(req, currentRepo.repoId)
@@ -243,12 +245,11 @@ class ContentController: RouteCollection {
         guard let userRepos = SessionController.getRepoAcccessList(req) else {
             throw Abort(.forbidden, reason: "User does not have repository access.")
         }
-        
         var repoListing = [RepoListing]()
         for userRepo in userRepos {
             
             let isSelected = userRepo.repoId == SessionController.getCurrentRepo(req)
-            repoListing.append(RepoListing(repoId: userRepo.repoId, repoName: userRepo.repoName, isSelected: isSelected, repoFolder: userRepo.repoFolder))
+            repoListing.append(RepoListing(repoId: userRepo.repoId, repoName: userRepo.repoName, isSelected: isSelected, repoFolder: userRepo.repoFolder, accessLevel: userRepo.accessLevel))
         }
         return repoListing.sorted(by: \.repoName)
         

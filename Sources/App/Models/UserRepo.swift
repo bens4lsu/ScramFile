@@ -8,6 +8,7 @@
 import Vapor
 import Fluent
 import FluentMySQLDriver
+import SQLKit
 
 
 final class UserRepo: Model, Content, Codable {
@@ -39,22 +40,6 @@ final class UserRepo: Model, Content, Codable {
                                     //              that the id property is set.  It was trying
                                     //              to insert where I needed an update.
         }
-    }
-    
-    func toUserAccessRepoListItem (_ req: Request) -> SecurityController.UserRepoAccess? {
-        guard let id = self.id else {
-            return nil
-        }
-        guard let repo = try await Repo.find(self.repoId, on: req.db) else {
-            return nil
-        }
-        
-        guard let repoName = repo.repoName,
-              let repoFolder = repo.repoFolder
-        else {
-            return nil
-        }
-        let ura = SecurityController.UserRepoAccess (repoId: id, accessLevel: self.accessLevel, repoName: repoName, repoFolder: repoFolder)
     }
 
 }

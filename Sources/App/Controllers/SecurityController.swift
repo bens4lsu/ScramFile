@@ -15,17 +15,22 @@ import SMTPKitten
 
 class SecurityController: RouteCollection {
     
-    struct UserRepoAccess: Codable, Comparable {
-        var repoId: UUID
-        var accessLevel: AccessLevel
-        var repoName: String
-        var repoFolder:String
-        
-        static func < (lhs: SecurityController.UserRepoAccess, rhs: SecurityController.UserRepoAccess) -> Bool {
-            lhs.repoName < rhs.repoName
-        }
-    }
+//    struct UserRepoAccess: Codable, Comparable {
+//        var repoId: UUID
+//        var accessLevel: AccessLevel
+//        var repoName: String
+//        var repoFolder:String
+//
+//        static func < (lhs: SecurityController.UserRepoAccess, rhs: SecurityController.UserRepoAccess) -> Bool {
+//            lhs.repoName < rhs.repoName
+//        }
+//
+////        func adminControllerUserRepoAccess() -> AdminController.AdminRepoList {
+////            return AdminController.AdminRepoList(repoId: self.repoId, repoName: self.repoName, accessLevel: self.accessLevel)
+////        }
+//    }
     
+    typealias UserRepoAccess = AdminController.AdminRepoList
     let settings: ConfigurationSettings
     
     var concordMail: ConcordMail {
@@ -127,7 +132,7 @@ class SecurityController: RouteCollection {
             for aRepo in allRepos {
                 let newUserRepo = UserRepo(id: nil, userId: user.id!, repoId: aRepo.id!, accessLevel: .full)
                 try await newUserRepo.save(on: req.db).get()
-                let access = UserRepoAccess(repoId: newUserRepo.id!, accessLevel: .full, repoName: aRepo.repoName, repoFolder: aRepo.repoFolder)
+                let access = UserRepoAccess(repoId: newUserRepo.id!, repoName: aRepo.repoName, accessLevel: .full, repoFolder: aRepo.repoFolder)
                 userRepoAccess.append(access)
             }
         }
@@ -136,7 +141,7 @@ class SecurityController: RouteCollection {
             for repo in userRepos {
                 if repo.accessLevel != .none {
                     let aRepo = try repo.joined(Repo.self)
-                    let access = UserRepoAccess(repoId: repo.id!, accessLevel: repo.accessLevel, repoName: aRepo.repoName, repoFolder: aRepo.repoFolder)
+                    let access = UserRepoAccess(repoId: repo.id!, repoName: aRepo.repoName, accessLevel: repo.accessLevel, repoFolder: aRepo.repoFolder)
                     userRepoAccess.append(access)
                 }
             }
