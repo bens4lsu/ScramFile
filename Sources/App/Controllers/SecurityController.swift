@@ -9,7 +9,6 @@ import Foundation
 import Vapor
 import Fluent
 import FluentMySQLDriver
-import SMTPKitten
 
 
 
@@ -32,10 +31,6 @@ class SecurityController: RouteCollection {
     
     typealias UserRepoAccess = AdminController.AdminRepoList
     let settings: ConfigurationSettings
-    
-    var concordMail: ConcordMail {
-        ConcordMail(configKeys: settings)
-    }
     
     init(_ settings: ConfigurationSettings) {
         self.settings = settings
@@ -249,18 +244,22 @@ extension SecurityController {
                         
         let (_, text) = self.getResetEmailBody(key: resetKey)
         
-        let sendTo = ConcordMail.Mail.User(name: nil, email: email)
-        let sendFrom = ConcordMail.Mail.User(name: settings.smtp.friendlyName, email: settings.smtp.fromEmail)
-        let mail = ConcordMail.Mail(from: sendFrom, to: sendTo, subject: "Password Reset Link for Secure File Share", contentType: .html, text: text)
+//        let sendTo = ConcordMail.Mail.User(name: nil, email: email)
+//        let sendFrom = ConcordMail.Mail.User(name: settings.smtp.friendlyName, email: settings.smtp.fromEmail)
+//        let mail = ConcordMail.Mail(from: sendFrom, to: sendTo, subject: "Password Reset Link for Secure File Share", contentType: .html, text: text)
+//        
+//        let mailResult = try await self.concordMail.send(mail: mail)
+//        switch mailResult {
+//        case .success:
+//            // redirect to page that tells them to check their email...
+//            return req.redirect(to: "/security/check-email")
+//        case .failure(let error):
+//            throw Abort (.internalServerError, reason: "Mail error:  \(error)")
+//        }
+        let mailQueue = MailQueue(emailAddressFrom: settings.smtp.fromEmail, emailAddressTo: email, subject: "Password Reset Link for Secure File Share", body: text, fromName: settings.smtp.friendlyName, toName: nil, plainOrHtml: nil)
+        try await mailQueue.save(on: req.db(.emailDb))
         
-        let mailResult = try await self.concordMail.send(mail: mail)
-        switch mailResult {
-        case .success:
-            // redirect to page that tells them to check their email...
-            return req.redirect(to: "/security/check-email")
-        case .failure(let error):
-            throw Abort (.internalServerError, reason: "Mail error:  \(error)")
-        }
+        return req.redirect(to: "/security/check-email")
     }
     
     
