@@ -28,7 +28,7 @@ public func configure(_ app: Application) throws {
         port: settings.database.port,
         username: settings.database.username,
         password: settings.database.password,
-        database: "Mailer",
+        database: "apps_mailer",
         tlsConfiguration: tls
     ), as: .emailDb)
     
